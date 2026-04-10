@@ -1,0 +1,558 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a small business owner (merchant) using the CrediPay app, storing their profile, business details, and current financial summaries.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "businessName": {
+          "type": "string",
+          "description": "The registered name of the merchant's business."
+        },
+        "ownerName": {
+          "type": "string",
+          "description": "The name of the individual owner of the business."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The contact phone number of the business owner, used for OTP login."
+        },
+        "email": {
+          "type": "string",
+          "description": "The contact email address for the business owner.",
+          "format": "email"
+        },
+        "address": {
+          "type": "string",
+          "description": "The physical address of the business."
+        },
+        "bankAccountNumber": {
+          "type": "string",
+          "description": "The bank account number linked to the merchant's CrediPay profile for transactions."
+        },
+        "ifscCode": {
+          "type": "string",
+          "description": "The Indian Financial System Code (IFSC) for the linked bank account."
+        },
+        "businessType": {
+          "type": "string",
+          "description": "The type or category of the merchant's business (e.g., 'kirana', 'restaurant', 'salon')."
+        },
+        "creditScore": {
+          "type": "number",
+          "description": "The current calculated credit score for the merchant, a key factor for loan eligibility."
+        },
+        "loanEligibleAmount": {
+          "type": "number",
+          "description": "The pre-approved or eligible loan amount for the merchant based on their credit score and business performance."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user's account was created.",
+          "format": "date-time"
+        },
+        "lastLoginAt": {
+          "type": "string",
+          "description": "Timestamp indicating the user's last login activity.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "businessName",
+        "ownerName",
+        "phoneNumber",
+        "bankAccountNumber",
+        "ifscCode",
+        "businessType",
+        "creditScore",
+        "loanEligibleAmount",
+        "createdAt"
+      ]
+    },
+    "Transaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Transaction",
+      "type": "object",
+      "description": "Records individual payment transactions made or received by the merchant, detailing the financial movement.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Transaction entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who is the merchant involved in this transaction. (Relationship: User 1:N Transaction)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The monetary value of the transaction."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of transaction, indicating whether it's a credit (received payment) or debit (sent payment).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the transaction (e.g., success, pending, failed).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time when the transaction occurred.",
+          "format": "date-time"
+        },
+        "method": {
+          "type": "string",
+          "description": "The payment method used for the transaction (e.g., UPI).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "payerIdentifier": {
+          "type": "string",
+          "description": "An identifier for the party making the payment (e.g., UPI ID, phone number, customer name). Optional."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description or note for the transaction."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "amount",
+        "type",
+        "status",
+        "timestamp",
+        "method"
+      ]
+    },
+    "DailyBusinessAggregate": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DailyBusinessAggregate",
+      "type": "object",
+      "description": "Stores precomputed daily summary statistics for a merchant's business performance, used for analytics and dashboard displays.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DailyBusinessAggregate entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User (merchant) for whom these aggregates are calculated. (Relationship: User 1:N DailyBusinessAggregate)"
+        },
+        "date": {
+          "type": "string",
+          "description": "The specific date for which these aggregates are calculated (YYYY-MM-DD format).",
+          "format": "date"
+        },
+        "totalEarnings": {
+          "type": "number",
+          "description": "The total amount of earnings (credit transactions) for the day."
+        },
+        "totalExpenses": {
+          "type": "number",
+          "description": "The total amount of expenses (debit transactions) for the day."
+        },
+        "netEarnings": {
+          "type": "number",
+          "description": "The net earnings (totalEarnings - totalExpenses) for the day."
+        },
+        "transactionCount": {
+          "type": "number",
+          "description": "The total number of transactions (both credit and debit) for the day."
+        },
+        "hourlyTransactionCounts": {
+          "type": "array",
+          "description": "An array representing transaction counts per hour. The index corresponds to the hour (0-23), and the value is the count of transactions in that hour.",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "date",
+        "totalEarnings",
+        "totalExpenses",
+        "netEarnings",
+        "transactionCount",
+        "hourlyTransactionCounts"
+      ]
+    },
+    "CreditScoreDetail": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CreditScoreDetail",
+      "type": "object",
+      "description": "Provides a detailed breakdown of factors contributing to a merchant's credit score, along with AI-generated recommendations for improvement.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the CreditScoreDetail entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User (merchant) whose credit score details are being recorded. (Relationship: User 1:1 CreditScoreDetail)"
+        },
+        "score": {
+          "type": "number",
+          "description": "The credit score at the time of this detailed evaluation."
+        },
+        "consistencyScore": {
+          "type": "number",
+          "description": "A score component reflecting the regularity and consistency of transactions."
+        },
+        "volumeScore": {
+          "type": "number",
+          "description": "A score component reflecting the total volume of transactions or earnings."
+        },
+        "growthScore": {
+          "type": "number",
+          "description": "A score component reflecting the growth trend in business earnings or transaction volume over time."
+        },
+        "lastEvaluatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when these credit score factors were last evaluated.",
+          "format": "date-time"
+        },
+        "recommendations": {
+          "type": "array",
+          "description": "An array of AI-generated textual recommendations for the merchant to improve their credit score.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "score",
+        "consistencyScore",
+        "volumeScore",
+        "growthScore",
+        "lastEvaluatedAt"
+      ]
+    },
+    "LoanApplication": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LoanApplication",
+      "type": "object",
+      "description": "Stores details about a merchant's loan application, including requested amount, approval status, and repayment terms.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the LoanApplication entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User (merchant) who applied for this loan. (Relationship: User 1:N LoanApplication)"
+        },
+        "requestedAmount": {
+          "type": "number",
+          "description": "The amount of loan requested by the merchant."
+        },
+        "approvedAmount": {
+          "type": "number",
+          "description": "The final amount approved for the loan, which may differ from the requested amount."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the loan application (e.g., pending, approved, rejected, disbursed, repaid).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "emiAmount": {
+          "type": "number",
+          "description": "The Equated Monthly Installment (EMI) amount for this loan."
+        },
+        "durationMonths": {
+          "type": "number",
+          "description": "The total repayment period for the loan in months."
+        },
+        "appliedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the loan application was submitted.",
+          "format": "date-time"
+        },
+        "approvedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the loan application was approved (if applicable).",
+          "format": "date-time"
+        },
+        "disbursedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the loan amount was disbursed to the merchant (if applicable).",
+          "format": "date-time"
+        },
+        "nextEmiDate": {
+          "type": "string",
+          "description": "The date of the next EMI payment due for this loan.",
+          "format": "date"
+        },
+        "outstandingAmount": {
+          "type": "number",
+          "description": "The remaining outstanding principal balance of the loan."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "requestedAmount",
+        "status",
+        "emiAmount",
+        "durationMonths",
+        "appliedAt"
+      ]
+    },
+    "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "Represents a notification sent to a specific user, informing them about important events, updates, or alerts.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Notification entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User (merchant) who should receive this notification. (Relationship: User 1:N Notification)"
+        },
+        "type": {
+          "type": "string",
+          "description": "The category or type of the notification (e.g., credit_score_increase, transaction_successful, loan_approved).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "message": {
+          "type": "string",
+          "description": "The actual content or text of the notification."
+        },
+        "isRead": {
+          "type": "boolean",
+          "description": "A boolean indicating whether the user has marked this notification as read."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the notification was created and sent.",
+          "format": "date-time"
+        },
+        "relatedEntityId": {
+          "type": "string",
+          "description": "Optional reference to another entity (e.g., Transaction ID, LoanApplication ID) that this notification is related to."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "type",
+        "message",
+        "isRead",
+        "createdAt"
+      ]
+    },
+    "UserAnalyticsSummary": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserAnalyticsSummary",
+      "type": "object",
+      "description": "Provides high-level, frequently accessed aggregated analytics for a user's business performance, updated periodically.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserAnalyticsSummary entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User (merchant) for whom these analytics are summarized. (Relationship: User 1:1 UserAnalyticsSummary)"
+        },
+        "totalTransactionsCount": {
+          "type": "number",
+          "description": "The total number of all transactions processed by the merchant."
+        },
+        "totalEarningsOverall": {
+          "type": "number",
+          "description": "The cumulative total earnings (credit transactions) since the merchant joined."
+        },
+        "weeklyEarnings": {
+          "type": "number",
+          "description": "The total earnings for the current week."
+        },
+        "monthlyEarnings": {
+          "type": "number",
+          "description": "The total earnings for the current month."
+        },
+        "lastUpdatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when this analytics summary was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "totalTransactionsCount",
+        "totalEarningsOverall",
+        "weeklyEarnings",
+        "monthlyEarnings",
+        "lastUpdatedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Root collection for all user profiles. Each document represents a unique merchant. Authorization is path-based, ensuring each user can only access their own profile. Includes denormalized 'creditScore' and 'loanEligibleAmount' for direct access and updates.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, corresponding to Firebase Authentication UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/transactions/{transactionId}",
+        "definition": {
+          "entityName": "Transaction",
+          "schema": {
+            "$ref": "#/backend/entities/Transaction"
+          },
+          "description": "Subcollection storing all financial transactions for a specific user. This hierarchical structure ensures authorization independence, as the 'userId' is implicitly part of the path, making rules simple and efficient. All documents in this subcollection share the same security posture (owned by the parent user). Includes denormalized 'userId' for explicit linkage.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the parent user."
+            },
+            {
+              "name": "transactionId",
+              "description": "The unique identifier for a specific transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/dailyBusinessAggregates/{dailyAggregateId}",
+        "definition": {
+          "entityName": "DailyBusinessAggregate",
+          "schema": {
+            "$ref": "#/backend/entities/DailyBusinessAggregate"
+          },
+          "description": "Subcollection for daily precomputed business aggregates for a user. This path structure provides clear ownership and simplifies security rules. Each document represents a daily summary for the specific user. Includes denormalized 'userId' for explicit linkage.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the parent user."
+            },
+            {
+              "name": "dailyAggregateId",
+              "description": "The unique identifier for a specific daily business aggregate document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/creditScoreDetails/{creditScoreDetailId}",
+        "definition": {
+          "entityName": "CreditScoreDetail",
+          "schema": {
+            "$ref": "#/backend/entities/CreditScoreDetail"
+          },
+          "description": "Subcollection to store detailed credit score breakdowns and historical records for a user. The hierarchical path enforces strict ownership. This allows for tracking changes in credit factors over time. Includes denormalized 'userId' for explicit linkage.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the parent user."
+            },
+            {
+              "name": "creditScoreDetailId",
+              "description": "The unique identifier for a specific credit score detail record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/loanApplications/{loanApplicationId}",
+        "definition": {
+          "entityName": "LoanApplication",
+          "schema": {
+            "$ref": "#/backend/entities/LoanApplication"
+          },
+          "description": "Subcollection for storing individual loan applications submitted by a user. This structure ensures that each loan application is clearly associated with its owner and benefits from path-based authorization. Includes denormalized 'userId' for explicit linkage.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the parent user."
+            },
+            {
+              "name": "loanApplicationId",
+              "description": "The unique identifier for a specific loan application."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "Subcollection for all notifications sent to a specific user. This ensures notifications are private and securely linked to the user's profile through the path. Includes denormalized 'userId' for explicit linkage.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the parent user."
+            },
+            {
+              "name": "notificationId",
+              "description": "The unique identifier for a specific notification."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/userAnalyticsSummary/current",
+        "definition": {
+          "entityName": "UserAnalyticsSummary",
+          "schema": {
+            "$ref": "#/backend/entities/UserAnalyticsSummary"
+          },
+          "description": "Document storing the current, high-level analytics summary for a specific user. This is a 1:1 relationship, directly accessed under the user's path. The document ID is a fixed string 'current'. Includes denormalized 'userId' for explicit linkage.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the parent user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure prioritizes robust security, scalability, and debuggability by strictly adhering to the core design principles, especially Authorization Independence and the principle that Rules Are Not Filters (QAPs).\n\n1.  **Authorization Independence & Hierarchical Paths:** All user-specific data is organized under a top-level `/users/{userId}` collection, followed by subcollections for related entities (e.g., `/users/{userId}/transactions`, `/users/{userId}/loanApplications`). This hierarchical structure ensures that the `userId` in the path itself serves as the primary authorization context. For any document within these subcollections, ownership is implicitly defined by the parent `userId` in the path. This eliminates the need for expensive and complex `get()` calls in Firestore Security Rules to check parent document attributes or cross-collection relationships. For example, a rule for `/users/{userId}/transactions/{transactionId}` simply needs to verify `request.auth.uid == userId`, making it atomic, fast, and easy to debug. This also enables atomic creation of related documents without complex transaction logic for rule validation.\n\n2.  **Structural Segregation (Homogeneous Security Posture):** Each subcollection (e.g., `transactions`, `dailyBusinessAggregates`, `creditScoreDetails`) holds documents that share the exact same security requirements: they are owned by and accessible only to the parent user. This prevents mixing data with different access levels in a single collection, simplifying security rules immensely. For instance, all documents in `/users/{userId}/transactions` are private to `userId`.\n\n3.  **QAPs (Rules Are Not Filters):** By enforcing user-specific data within a dedicated user path, `list` operations become inherently secure. A client can only perform a `list` query within their own `/users/{request.auth.uid}/...` subcollections. The security rules will only permit reads if `request.auth.uid` matches the `userId` wildcard in the path. This means that any client-side query (e.g., `db.collection('users').doc(currentUserUid).collection('transactions').get()`) will automatically return only the authenticated user's transactions, without the rules having to act as filters to remove unauthorized documents from a larger set. This fulfills QAPs by ensuring that if a query is allowed, all results are authorized.\n\n4.  **Denormalization:** While the `userId` is naturally present in the path for subcollections, explicitly including `userId` as a field within each subcollection document (as indicated by the entity schemas) acts as an additional layer of denormalization. This makes queries simpler for Cloud Functions or client-side logic that might receive a document without its full path context. For the main `users/{userId}` document, `creditScore` and `loanEligibleAmount` are denormalized fields, updated by Cloud Functions, providing direct, performant access to critical user attributes for UI display without joins or additional reads.\n\nThis architecture provides a scalable and secure foundation, allowing for intuitive security rules that are simple to write, review, and maintain."
+  }
+}
