@@ -2,13 +2,59 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ShieldCheck, IndianRupee, ArrowRight, Building2, Store } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { useAuth, useUser, initiateAnonymousSignIn } from "@/firebase";
+import { doc, setDoc, getFirestore, serverTimestamp } from "firebase/firestore";
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
+  const [phone, setPhone] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && user && step < 3) {
+      setStep(3);
+    }
+  }, [user, isUserLoading, step]);
+
+  const handleSendOTP = () => {
+    if (phone.length === 10) {
+      setStep(2);
+    }
+  };
+
+  const handleVerifyOTP = () => {
+    // Simulate OTP verification by signing in anonymously
+    // In production, this would use signInWithPhoneNumber
+    initiateAnonymousSignIn(auth);
+  };
+
+  const handleCompleteOnboarding = async () => {
+    if (!user) return;
+    const db = getFirestore();
+    const userRef = doc(db, "users", user.uid);
+    
+    await setDoc(userRef, {
+      id: user.uid,
+      businessName: businessName || "My Store",
+      ownerName: "Merchant",
+      phoneNumber: `+91${phone}`,
+      bankAccountNumber: "XXXXXXXXXXXX",
+      ifscCode: "IFSC0001234",
+      businessType: "General Store",
+      creditScore: 300,
+      loanEligibleAmount: 0,
+      createdAt: serverTimestamp(),
+    }, { merge: true });
+
+    router.push("/");
+  };
 
   return (
     <div className="flex-1 flex flex-col p-8 bg-white h-full">
@@ -44,11 +90,14 @@ export default function OnboardingPage() {
                    placeholder="Mobile Number" 
                    type="tel"
                    maxLength={10}
+                   value={phone}
+                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                  />
               </div>
               <Button 
-                className="w-full h-16 rounded-2xl indigo-gradient text-white font-black text-lg gap-3 shadow-xl transition-all active:scale-95"
-                onClick={() => setStep(2)}
+                className="w-full h-16 rounded-2xl indigo-gradient text-white font-black text-lg gap-3 shadow-xl transition-all active:scale-95 disabled:opacity-50"
+                onClick={handleSendOTP}
+                disabled={phone.length !== 10}
               >
                 Send OTP
                 <ArrowRight className="w-5 h-5" />
@@ -60,7 +109,7 @@ export default function OnboardingPage() {
              <div>
               <h2 className="text-2xl font-black text-primary mb-2">Verify OTP</h2>
               <p className="text-sm text-muted-foreground font-bold leading-relaxed">
-                Enter the 6-digit code sent to your mobile.
+                Enter any 6-digit code (Simulation Mode).
               </p>
             </div>
 
@@ -76,7 +125,7 @@ export default function OnboardingPage() {
 
             <Button 
               className="w-full h-16 rounded-2xl indigo-gradient text-white font-black text-lg shadow-xl active:scale-95 transition-all"
-              onClick={() => setStep(3)}
+              onClick={handleVerifyOTP}
             >
               Verify & Continue
             </Button>
@@ -97,7 +146,12 @@ export default function OnboardingPage() {
              <div className="space-y-4">
                 <div className="relative">
                    <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                   <Input className="h-16 bg-gray-50 border-none rounded-2xl pl-12 font-black" placeholder="Business Name" />
+                   <Input 
+                    className="h-16 bg-gray-50 border-none rounded-2xl pl-12 font-black" 
+                    placeholder="Business Name" 
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                   />
                 </div>
                 <div className="relative">
                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -106,10 +160,11 @@ export default function OnboardingPage() {
              </div>
 
              <Button 
-               className="w-full h-16 rounded-2xl gradient-cta text-white font-black text-lg shadow-xl active:scale-95 transition-all"
-               asChild
+               className="w-full h-16 rounded-2xl gradient-cta text-white font-black text-lg shadow-xl active:scale-95 transition-all disabled:opacity-50"
+               onClick={handleCompleteOnboarding}
+               disabled={!businessName}
              >
-               <Link href="/">Get Started</Link>
+               Get Started
              </Button>
            </div>
         )}

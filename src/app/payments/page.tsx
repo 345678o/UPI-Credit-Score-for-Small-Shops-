@@ -4,19 +4,43 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { QrCode, Scan, ArrowRight, IndianRupee, CheckCircle2, ChevronLeft, Download, Share2 } from "lucide-react";
+import { QrCode, Scan, IndianRupee, CheckCircle2, Download, Share2 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useUser, addDocumentNonBlocking } from "@/firebase";
+import { collection, getFirestore, serverTimestamp } from "firebase/firestore";
 
 export default function PaymentsPage() {
+  const { user } = useUser();
   const [amount, setAmount] = useState("");
+  const [payer, setPayer] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handlePay = () => {
-    if (!amount) return;
-    setShowSuccess(true);
+    if (!amount || !user) return;
+    setIsProcessing(true);
+
+    const db = getFirestore();
+    const txnsRef = collection(db, "users", user.uid, "transactions");
+
+    addDocumentNonBlocking(txnsRef, {
+      userId: user.uid,
+      amount: parseFloat(amount),
+      type: "credit", // Simulated as receiving payment
+      status: "success",
+      timestamp: serverTimestamp(),
+      method: "UPI",
+      payerIdentifier: payer || "Customer",
+      description: "Payment received via QR/ID",
+    });
+
+    // Mock delay for UX
+    setTimeout(() => {
+      setShowSuccess(true);
+      setIsProcessing(false);
+    }, 800);
   };
 
   return (
@@ -43,7 +67,6 @@ export default function PaymentsPage() {
                         width={240} 
                         height={240}
                         className="rounded-2xl"
-                        data-ai-hint="QR Code"
                     />
                  </div>
                  <div className="absolute bottom-2 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full border border-gray-100 shadow-sm">
@@ -83,18 +106,20 @@ export default function PaymentsPage() {
             <div className="relative">
               <Input 
                 className="h-14 bg-gray-50/50 border-2 border-transparent focus:border-indigo-500/20 focus:bg-white rounded-2xl px-5 font-extrabold transition-all" 
-                placeholder="UPI ID or Phone Number" 
+                placeholder="Customer Name or UPI ID" 
+                value={payer}
+                onChange={(e) => setPayer(e.target.value)}
               />
             </div>
             <Button 
               className={cn(
                 "w-full h-16 rounded-2xl font-black text-white text-lg mt-2 transition-all shadow-xl active:scale-95",
-                amount ? "indigo-gradient" : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                amount && !isProcessing ? "indigo-gradient" : "bg-gray-200 text-gray-400 cursor-not-allowed"
               )}
               onClick={handlePay}
-              disabled={!amount}
+              disabled={!amount || isProcessing}
             >
-              Pay Now
+              {isProcessing ? "Processing..." : "Receive Payment"}
             </Button>
           </div>
         </section>
@@ -110,21 +135,21 @@ export default function PaymentsPage() {
                 <CheckCircle2 className="w-16 h-16 text-emerald-600 stroke-[3.5px]" />
              </div>
              <h2 className="text-4xl font-black text-primary mb-2 tabular-nums">₹{parseFloat(amount).toFixed(2)}</h2>
-             <p className="text-emerald-600 font-black mb-12 uppercase tracking-[3px] text-xs">Payment Successful</p>
+             <p className="text-emerald-600 font-black mb-12 uppercase tracking-[3px] text-xs">Payment Received</p>
              
              <Card className="w-full border-2 border-dashed border-gray-100 bg-gray-50/30 rounded-3xl">
                <CardContent className="p-6 space-y-4">
                   <div className="flex justify-between items-center text-sm">
-                     <span className="text-muted-foreground font-extrabold uppercase tracking-wider text-[10px]">To</span>
-                     <span className="font-black text-primary">Rahul Sharma</span>
+                     <span className="text-muted-foreground font-extrabold uppercase tracking-wider text-[10px]">From</span>
+                     <span className="font-black text-primary">{payer || "Customer"}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                      <span className="text-muted-foreground font-extrabold uppercase tracking-wider text-[10px]">Transaction ID</span>
-                     <span className="font-black font-mono text-primary">CP882910449</span>
+                     <span className="font-black font-mono text-primary">CP{Math.floor(Math.random() * 900000000 + 100000000)}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                      <span className="text-muted-foreground font-extrabold uppercase tracking-wider text-[10px]">Date & Time</span>
-                     <span className="font-black text-primary">24 Aug, 10:45 AM</span>
+                     <span className="font-black text-primary">{new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
                   </div>
                </CardContent>
              </Card>
@@ -134,6 +159,7 @@ export default function PaymentsPage() {
                onClick={() => {
                  setShowSuccess(false);
                  setAmount("");
+                 setPayer("");
                }}
              >
                Done

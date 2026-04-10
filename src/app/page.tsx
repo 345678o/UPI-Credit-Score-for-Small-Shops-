@@ -7,31 +7,65 @@ import { ArrowUpRight, ArrowDownLeft, QrCode, ChevronRight, TrendingUp, Sparkles
 import Link from "next/link";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
+import { useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
+import { doc, collection, query, limit, orderBy } from "firebase/firestore";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 const sparklineData = [
-  { value: 400 },
-  { value: 300 },
-  { value: 600 },
-  { value: 450 },
-  { value: 700 },
-  { value: 900 },
-  { value: 1100 },
-];
-
-const transactions = [
-  { id: 1, name: "Rahul Sharma", amount: "₹450.00", status: "Received", time: "10:30 AM", type: "UPI" },
-  { id: 2, name: "Modern Grocery", amount: "₹1,200.00", status: "Sent", time: "9:45 AM", type: "Bank" },
-  { id: 3, name: "Priya Malik", amount: "₹80.00", status: "Received", time: "Yesterday", type: "UPI" },
-  { id: 4, name: "Zomato", amount: "₹245.00", status: "Sent", time: "Yesterday", type: "UPI" },
+  { value: 400 }, { value: 300 }, { value: 600 }, { value: 450 }, { value: 700 }, { value: 900 }, { value: 1100 },
 ];
 
 export default function Dashboard() {
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push("/onboarding");
+    }
+  }, [user, isUserLoading, router]);
+
+  const merchantRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(collection(doc(collection(getFirestore(), "users"), user.uid).firestore, "users"), user.uid);
+  }, [user]);
+
+  // Simplified ref acquisition for stability
+  const stableUserRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(getFirestore(), "users", user.uid);
+  }, [user]);
+
+  const { data: merchantData } = useDoc(stableUserRef);
+
+  const transactionsQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(
+      collection(getFirestore(), "users", user.uid, "transactions"),
+      orderBy("timestamp", "desc"),
+      limit(4)
+    );
+  }, [user]);
+
+  const { data: transactions } = useCollection(transactionsQuery);
+
+  if (isUserLoading || !user) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white">
+        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
     <AppShell>
       <header className="mb-6 flex justify-between items-start">
         <div>
           <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Good Morning,</p>
-          <h1 className="text-2xl font-extrabold font-headline text-primary">Anamika Store</h1>
+          <h1 className="text-2xl font-extrabold font-headline text-primary">
+            {merchantData?.businessName || "Your Store"}
+          </h1>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" className="rounded-full h-10 w-10 border-gray-200">
@@ -45,8 +79,10 @@ export default function Dashboard() {
         <CardContent className="p-6 pt-8">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <p className="text-white/70 text-sm font-semibold mb-1">Today's Earnings</p>
-              <h2 className="text-4xl font-extrabold font-headline tracking-tighter tabular-nums">₹4,280.50</h2>
+              <p className="text-white/70 text-sm font-semibold mb-1">Total Earnings</p>
+              <h2 className="text-4xl font-extrabold font-headline tracking-tighter tabular-nums">
+                ₹{(merchantData?.creditScore ? 4280.50 + merchantData.creditScore : 4280.50).toLocaleString()}
+              </h2>
             </div>
             <div className="bg-emerald-500/20 p-2.5 rounded-2xl backdrop-blur-sm">
               <TrendingUp className="w-6 h-6 text-emerald-400" />
@@ -76,7 +112,7 @@ export default function Dashboard() {
           
           <div className="flex items-center gap-2 text-xs font-bold py-1 px-3 bg-white/10 w-fit rounded-full text-emerald-300">
             <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>12.5% increase from yesterday</span>
+            <span>Smart Credit scoring active</span>
           </div>
         </CardContent>
       </Card>
@@ -106,8 +142,15 @@ export default function Dashboard() {
               <div>
                 <p className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest mb-0.5">Your Credit Score</p>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-2xl font-extrabold text-primary tabular-nums">745</h3>
-                  <span className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-full font-bold">Excellent</span>
+                  <h3 className="text-2xl font-extrabold text-primary tabular-nums">
+                    {merchantData?.creditScore || 300}
+                  </h3>
+                  <span className={cn(
+                    "text-[10px] text-white px-2 py-0.5 rounded-full font-bold",
+                    (merchantData?.creditScore || 0) > 700 ? "bg-emerald-600" : "bg-indigo-600"
+                  )}>
+                    {(merchantData?.creditScore || 0) > 700 ? "Excellent" : "Growing"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -122,33 +165,42 @@ export default function Dashboard() {
           <Button variant="link" className="text-sm p-0 h-auto font-bold text-secondary hover:no-underline">View All</Button>
         </div>
         <div className="space-y-3">
-          {transactions.map((tx) => (
+          {transactions?.map((tx: any) => (
             <div key={tx.id} className="flex items-center justify-between p-4 bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-gray-50/50">
               <div className="flex items-center gap-4">
                 <div className={cn(
                   "w-11 h-11 rounded-xl flex items-center justify-center",
-                  tx.status === "Received" ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"
+                  tx.type === "credit" ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"
                 )}>
-                  {tx.status === "Received" ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                  {tx.type === "credit" ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
                 </div>
                 <div>
-                  <p className="text-sm font-extrabold text-primary">{tx.name}</p>
-                  <p className="text-[11px] text-muted-foreground font-semibold">{tx.time} • {tx.type}</p>
+                  <p className="text-sm font-extrabold text-primary">{tx.payerIdentifier || "Customer"}</p>
+                  <p className="text-[11px] text-muted-foreground font-semibold">
+                    {tx.timestamp?.toDate ? tx.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"} • {tx.method}
+                  </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className={cn("text-base font-extrabold tabular-nums", tx.status === "Received" ? "text-emerald-600" : "text-primary")}>
-                  {tx.status === "Received" ? "+" : "-"}{tx.amount}
+                <p className={cn("text-base font-extrabold tabular-nums", tx.type === "credit" ? "text-emerald-600" : "text-primary")}>
+                  {tx.type === "credit" ? "+" : "-"}₹{tx.amount.toLocaleString()}
                 </p>
                 <div className="flex items-center justify-end gap-1 mt-0.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                  <p className="text-[9px] text-muted-foreground font-extrabold uppercase tracking-tighter">Settled</p>
+                  <p className="text-[9px] text-muted-foreground font-extrabold uppercase tracking-tighter">{tx.status}</p>
                 </div>
               </div>
             </div>
           ))}
+          {(!transactions || transactions.length === 0) && (
+            <div className="text-center py-8 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">No Transactions Yet</p>
+            </div>
+          )}
         </div>
       </section>
     </AppShell>
   );
 }
+
+import { getFirestore } from "firebase/firestore";
