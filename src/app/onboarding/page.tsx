@@ -3,35 +3,36 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { ShieldCheck, IndianRupee, ArrowRight, Building2, Store } from "lucide-react";
-import Link from "next/link";
+import { ShieldCheck, IndianRupee, ArrowRight, Building2, Store, Mail, KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth, useUser, initiateAnonymousSignIn } from "@/firebase";
 import { doc, setDoc, getFirestore, serverTimestamp } from "firebase/firestore";
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [businessName, setBusinessName] = useState("");
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
 
   useEffect(() => {
+    // If user is already logged in but hasn't finished onboarding details,
+    // we move them to the final step. If they are already in the DB, 
+    // the dashboard redirect in page.tsx will handle them.
     if (!isUserLoading && user && step < 3) {
       setStep(3);
     }
   }, [user, isUserLoading, step]);
 
-  const handleSendOTP = () => {
-    if (phone.length === 10) {
+  const handleSendCode = () => {
+    if (email.includes("@")) {
       setStep(2);
     }
   };
 
-  const handleVerifyOTP = () => {
-    // Simulate OTP verification by signing in anonymously
-    // In production, this would use signInWithPhoneNumber
+  const handleVerifyCode = () => {
+    // Simulate email verification by signing in anonymously
     initiateAnonymousSignIn(auth);
   };
 
@@ -44,7 +45,8 @@ export default function OnboardingPage() {
       id: user.uid,
       businessName: businessName || "My Store",
       ownerName: "Merchant",
-      phoneNumber: `+91${phone}`,
+      email: email,
+      phoneNumber: "", // Now optional or collected later
       bankAccountNumber: "XXXXXXXXXXXX",
       ifscCode: "IFSC0001234",
       businessType: "General Store",
@@ -81,25 +83,22 @@ export default function OnboardingPage() {
             </div>
             
             <div className="space-y-4">
-              <div className="flex gap-3">
-                 <div className="w-16 h-16 bg-gray-50 border-2 border-transparent rounded-2xl flex items-center justify-center font-black text-xl text-primary">
-                    +91
-                 </div>
+              <div className="relative">
+                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                  <Input 
-                   className="h-16 bg-gray-50 border-2 border-transparent focus:border-indigo-600/10 focus:bg-white rounded-2xl flex-1 px-6 text-xl font-black tabular-nums transition-all" 
-                   placeholder="Mobile Number" 
-                   type="tel"
-                   maxLength={10}
-                   value={phone}
-                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                   className="h-16 bg-gray-50 border-2 border-transparent focus:border-indigo-600/10 focus:bg-white rounded-2xl flex-1 pl-12 pr-6 text-lg font-black transition-all" 
+                   placeholder="Email Address" 
+                   type="email"
+                   value={email}
+                   onChange={(e) => setEmail(e.target.value)}
                  />
               </div>
               <Button 
                 className="w-full h-16 rounded-2xl indigo-gradient text-white font-black text-lg gap-3 shadow-xl transition-all active:scale-95 disabled:opacity-50"
-                onClick={handleSendOTP}
-                disabled={phone.length !== 10}
+                onClick={handleSendCode}
+                disabled={!email.includes("@")}
               >
-                Send OTP
+                Send Verification Code
                 <ArrowRight className="w-5 h-5" />
               </Button>
             </div>
@@ -107,9 +106,9 @@ export default function OnboardingPage() {
         ) : step === 2 ? (
           <div className="space-y-8 animate-in slide-in-from-right duration-300">
              <div>
-              <h2 className="text-2xl font-black text-primary mb-2">Verify OTP</h2>
+              <h2 className="text-2xl font-black text-primary mb-2">Verify Email</h2>
               <p className="text-sm text-muted-foreground font-bold leading-relaxed">
-                Enter any 6-digit code (Simulation Mode).
+                Enter the 6-digit code sent to <b>{email}</b>.
               </p>
             </div>
 
@@ -125,13 +124,13 @@ export default function OnboardingPage() {
 
             <Button 
               className="w-full h-16 rounded-2xl indigo-gradient text-white font-black text-lg shadow-xl active:scale-95 transition-all"
-              onClick={handleVerifyOTP}
+              onClick={handleVerifyCode}
             >
               Verify & Continue
             </Button>
             
             <p className="text-center text-xs font-black uppercase tracking-widest text-muted-foreground">
-               Didn't receive? <button className="text-indigo-600 underline ml-1">Resend in 30s</button>
+               Didn't receive? <button className="text-indigo-600 underline ml-1">Resend Code</button>
             </p>
           </div>
         ) : (
