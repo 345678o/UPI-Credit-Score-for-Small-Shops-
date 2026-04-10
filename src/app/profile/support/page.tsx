@@ -2,8 +2,9 @@
 
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, MessageSquare, Phone, Mail, FileText, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, MessageSquare, Phone, Mail, FileText, ExternalLink } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export default function SupportPage() {
   return (
@@ -69,5 +70,3 @@ export default function SupportPage() {
     </AppShell>
   );
 }
-
-import { cn } from "@/lib/utils";
