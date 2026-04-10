@@ -1,3 +1,16 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "qr",
+      "description": "Merchant QR Code",
+      "imageUrl": "https://picsum.photos/seed/qr/300/300",
+      "imageHint": "QR Code"
+    },
+    {
+      "id": "merchant",
+      "description": "Merchant Profile",
+      "imageUrl": "https://picsum.photos/seed/merchant/200/200",
+      "imageHint": "Person Profile"
+    }
+  ]
 }
