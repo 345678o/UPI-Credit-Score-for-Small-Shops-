@@ -7,6 +7,7 @@ import { ShieldCheck, Info, TrendingUp, History, Sparkles, ChevronRight, IndianR
 import { useEffect, useState } from "react";
 import { creditScoreImprovementRecommendations, type CreditScoreImprovementRecommendationsOutput } from "@/ai/flows/credit-score-improvement-recommendations";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export default function CreditPage() {
   const [recommendations, setRecommendations] = useState<any[]>([]);
