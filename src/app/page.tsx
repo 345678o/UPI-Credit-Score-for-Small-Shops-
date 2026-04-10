@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -8,7 +9,7 @@ import Link from "next/link";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 import { useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
-import { doc, collection, query, limit, orderBy } from "firebase/firestore";
+import { doc, collection, query, limit, orderBy, getFirestore } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -26,18 +27,12 @@ export default function Dashboard() {
     }
   }, [user, isUserLoading, router]);
 
-  const merchantRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(collection(doc(collection(getFirestore(), "users"), user.uid).firestore, "users"), user.uid);
-  }, [user]);
-
-  // Simplified ref acquisition for stability
-  const stableUserRef = useMemoFirebase(() => {
+  const userRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(getFirestore(), "users", user.uid);
   }, [user]);
 
-  const { data: merchantData } = useDoc(stableUserRef);
+  const { data: merchantData } = useDoc(userRef);
 
   const transactionsQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -68,9 +63,11 @@ export default function Dashboard() {
           </h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="icon" className="rounded-full h-10 w-10 border-gray-200">
-            <Bell className="w-5 h-5 text-primary" />
-          </Button>
+          <Link href="/notifications">
+            <Button variant="outline" size="icon" className="rounded-full h-10 w-10 border-gray-200">
+              <Bell className="w-5 h-5 text-primary" />
+            </Button>
+          </Link>
         </div>
       </header>
 
@@ -79,9 +76,9 @@ export default function Dashboard() {
         <CardContent className="p-6 pt-8">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <p className="text-white/70 text-sm font-semibold mb-1">Total Earnings</p>
+              <p className="text-white/70 text-sm font-semibold mb-1">Business Pulse</p>
               <h2 className="text-4xl font-extrabold font-headline tracking-tighter tabular-nums">
-                ₹{(merchantData?.creditScore ? 4280.50 + merchantData.creditScore : 4280.50).toLocaleString()}
+                ₹{(merchantData?.creditScore ? 1000 + (merchantData.creditScore * 10) : 4280.50).toLocaleString()}
               </h2>
             </div>
             <div className="bg-emerald-500/20 p-2.5 rounded-2xl backdrop-blur-sm">
@@ -111,7 +108,7 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-2 text-xs font-bold py-1 px-3 bg-white/10 w-fit rounded-full text-emerald-300">
-            <ArrowUpRight className="w-3.5 h-3.5" />
+            <Sparkles className="w-3.5 h-3.5" />
             <span>Smart Credit scoring active</span>
           </div>
         </CardContent>
@@ -119,9 +116,9 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-3 gap-4 mb-8">
         {[
-          { label: "Receive", icon: ArrowDownLeft, href: "/payments?mode=receive", color: "bg-emerald-50 text-emerald-600" },
-          { label: "Send", icon: ArrowUpRight, href: "/payments?mode=send", color: "bg-indigo-50 text-indigo-600" },
-          { label: "QR Code", icon: QrCode, href: "/payments?mode=qr", color: "bg-gray-50 text-gray-700" }
+          { label: "Receive", icon: ArrowDownLeft, href: "/payments", color: "bg-emerald-50 text-emerald-600" },
+          { label: "Send", icon: ArrowUpRight, href: "/payments", color: "bg-indigo-50 text-indigo-600" },
+          { label: "QR Code", icon: QrCode, href: "/payments", color: "bg-gray-50 text-gray-700" }
         ].map((item) => (
           <Link key={item.label} href={item.href} className="flex flex-col items-center gap-3">
             <div className={cn("w-14 h-14 rounded-2xl shadow-sm flex items-center justify-center transition-transform active:scale-95", item.color)}>
@@ -137,10 +134,10 @@ export default function Dashboard() {
           <CardContent className="p-5 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-indigo-600" />
+                <ShieldCheck className="w-6 h-6 text-indigo-600" />
               </div>
               <div>
-                <p className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest mb-0.5">Your Credit Score</p>
+                <p className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest mb-0.5">Live Credit Score</p>
                 <div className="flex items-center gap-2">
                   <h3 className="text-2xl font-extrabold text-primary tabular-nums">
                     {merchantData?.creditScore || 300}
@@ -149,7 +146,7 @@ export default function Dashboard() {
                     "text-[10px] text-white px-2 py-0.5 rounded-full font-bold",
                     (merchantData?.creditScore || 0) > 700 ? "bg-emerald-600" : "bg-indigo-600"
                   )}>
-                    {(merchantData?.creditScore || 0) > 700 ? "Excellent" : "Growing"}
+                    {(merchantData?.creditScore || 0) > 700 ? "Excellent" : "Developing"}
                   </span>
                 </div>
               </div>
@@ -161,8 +158,10 @@ export default function Dashboard() {
 
       <section className="pb-8">
         <div className="flex justify-between items-center mb-5 px-1">
-          <h3 className="font-extrabold font-headline text-lg text-primary">Recent Transactions</h3>
-          <Button variant="link" className="text-sm p-0 h-auto font-bold text-secondary hover:no-underline">View All</Button>
+          <h3 className="font-extrabold font-headline text-lg text-primary">Recent Activity</h3>
+          <Button variant="link" className="text-sm p-0 h-auto font-bold text-secondary hover:no-underline" asChild>
+            <Link href="/analytics">View Insights</Link>
+          </Button>
         </div>
         <div className="space-y-3">
           {transactions?.map((tx: any) => (
@@ -194,7 +193,7 @@ export default function Dashboard() {
           ))}
           {(!transactions || transactions.length === 0) && (
             <div className="text-center py-8 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">No Transactions Yet</p>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">No Transactions Recorded</p>
             </div>
           )}
         </div>
@@ -202,5 +201,3 @@ export default function Dashboard() {
     </AppShell>
   );
 }
-
-import { getFirestore } from "firebase/firestore";

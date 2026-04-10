@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -8,8 +9,8 @@ import { QrCode, Scan, IndianRupee, CheckCircle2, Download, Share2 } from "lucid
 import Image from "next/image";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useUser, addDocumentNonBlocking } from "@/firebase";
-import { collection, getFirestore, serverTimestamp } from "firebase/firestore";
+import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { collection, getFirestore, serverTimestamp, doc, getDoc } from "firebase/firestore";
 
 export default function PaymentsPage() {
   const { user } = useUser();
@@ -18,23 +19,65 @@ export default function PaymentsPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handlePay = () => {
+  const handlePay = async () => {
     if (!amount || !user) return;
     setIsProcessing(true);
 
     const db = getFirestore();
     const txnsRef = collection(db, "users", user.uid, "transactions");
+    const userRef = doc(db, "users", user.uid);
 
+    // 1. Record the transaction
     addDocumentNonBlocking(txnsRef, {
       userId: user.uid,
       amount: parseFloat(amount),
-      type: "credit", // Simulated as receiving payment
+      type: "credit",
       status: "success",
       timestamp: serverTimestamp(),
       method: "UPI",
       payerIdentifier: payer || "Customer",
       description: "Payment received via QR/ID",
     });
+
+    // 2. Simulate Backend Logic: Recalculate Credit Score and Loan Eligibility
+    // In a real app, this happens in a Cloud Function triggered by the transaction onCreate.
+    // For prototyping, we do it here to show immediate impact.
+    try {
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const currentScore = userData.creditScore || 300;
+        
+        // Logic: Each transaction adds 2-5 points to consistency/volume
+        const newScore = Math.min(900, currentScore + Math.floor(Math.random() * 3) + 2);
+        
+        // Eligibility: simple tiers
+        let newEligible = 0;
+        if (newScore > 700) newEligible = 150000;
+        else if (newScore > 600) newEligible = 75000;
+        else if (newScore > 500) newEligible = 40000;
+        else if (newScore > 400) newEligible = 20000;
+        else newEligible = 10000;
+
+        updateDocumentNonBlocking(userRef, {
+          creditScore: newScore,
+          loanEligibleAmount: newEligible,
+          lastUpdated: serverTimestamp()
+        });
+
+        // 3. Create a notification for the user
+        const notifRef = collection(db, "users", user.uid, "notifications");
+        addDocumentNonBlocking(notifRef, {
+          userId: user.uid,
+          type: "transaction_successful",
+          message: `Received ₹${parseFloat(amount).toLocaleString()} from ${payer || "Customer"}. Your credit score improved!`,
+          isRead: false,
+          createdAt: serverTimestamp()
+        });
+      }
+    } catch (e) {
+      console.error("Simulation error:", e);
+    }
 
     // Mock delay for UX
     setTimeout(() => {

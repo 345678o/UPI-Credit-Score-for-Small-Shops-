@@ -1,17 +1,21 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { ShieldCheck, IndianRupee, ArrowRight, Building2, Store, Mail, Info } from "lucide-react";
+import { ShieldCheck, IndianRupee, ArrowRight, Building2, Store, Mail, Info, User as UserIcon, Briefcase } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth, useUser, initiateAnonymousSignIn } from "@/firebase";
 import { doc, setDoc, getFirestore, serverTimestamp } from "firebase/firestore";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [businessName, setBusinessName] = useState("");
+  const [ownerName, setOwnerName] = useState("");
+  const [businessType, setBusinessType] = useState("Kirana");
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
@@ -29,7 +33,6 @@ export default function OnboardingPage() {
   };
 
   const handleVerifyCode = () => {
-    // Simulation: Signs in anonymously for the prototype
     initiateAnonymousSignIn(auth);
   };
 
@@ -41,14 +44,14 @@ export default function OnboardingPage() {
     await setDoc(userRef, {
       id: user.uid,
       businessName: businessName || "My Store",
-      ownerName: "Merchant",
+      ownerName: ownerName || "Merchant",
       email: email,
-      phoneNumber: "",
+      phoneNumber: "", // Placeholder for schema compliance
       bankAccountNumber: "XXXXXXXXXXXX",
       ifscCode: "IFSC0001234",
-      businessType: "General Store",
-      creditScore: 300,
-      loanEligibleAmount: 0,
+      businessType: businessType,
+      creditScore: 350,
+      loanEligibleAmount: 10000,
       createdAt: serverTimestamp(),
     }, { merge: true });
 
@@ -129,7 +132,7 @@ export default function OnboardingPage() {
             <div className="flex items-center gap-2 justify-center bg-blue-50 p-4 rounded-2xl border border-blue-100">
               <Info className="w-4 h-4 text-blue-600 shrink-0" />
               <p className="text-[10px] font-bold text-blue-800 leading-tight">
-                PROTOTYPE MODE: Verification is simulated. No real email will be sent to <b>{email}</b>.
+                PROTOTYPE MODE: Verification is simulated. No real email will be sent.
               </p>
             </div>
           </div>
@@ -144,6 +147,15 @@ export default function OnboardingPage() {
 
              <div className="space-y-4">
                 <div className="relative">
+                   <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                   <Input 
+                    className="h-16 bg-gray-50 border-none rounded-2xl pl-12 font-black" 
+                    placeholder="Owner Name" 
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                   />
+                </div>
+                <div className="relative">
                    <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                    <Input 
                     className="h-16 bg-gray-50 border-none rounded-2xl pl-12 font-black" 
@@ -153,15 +165,26 @@ export default function OnboardingPage() {
                    />
                 </div>
                 <div className="relative">
-                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                   <Input className="h-16 bg-gray-50 border-none rounded-2xl pl-12 font-black" placeholder="GST Number (Optional)" />
+                   <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                   <Select value={businessType} onValueChange={setBusinessType}>
+                     <SelectTrigger className="h-16 bg-gray-50 border-none rounded-2xl pl-12 font-black text-left">
+                       <SelectValue placeholder="Business Category" />
+                     </SelectTrigger>
+                     <SelectContent className="rounded-2xl font-bold">
+                       <SelectItem value="Kirana">Kirana / General Store</SelectItem>
+                       <SelectItem value="Restaurant">Restaurant / Cafe</SelectItem>
+                       <SelectItem value="Salon">Salon / Spa</SelectItem>
+                       <SelectItem value="Electronics">Electronics</SelectItem>
+                       <SelectItem value="Pharmacy">Pharmacy</SelectItem>
+                     </SelectContent>
+                   </Select>
                 </div>
              </div>
 
              <Button 
                className="w-full h-16 rounded-2xl gradient-cta text-white font-black text-lg shadow-xl active:scale-95 transition-all disabled:opacity-50"
                onClick={handleCompleteOnboarding}
-               disabled={!businessName}
+               disabled={!businessName || !ownerName}
              >
                Get Started
              </Button>
