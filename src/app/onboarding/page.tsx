@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { ShieldCheck, IndianRupee, ArrowRight, Building2, Store, Mail, KeyRound } from "lucide-react";
+import { ShieldCheck, IndianRupee, ArrowRight, Building2, Store, Mail, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth, useUser, initiateAnonymousSignIn } from "@/firebase";
 import { doc, setDoc, getFirestore, serverTimestamp } from "firebase/firestore";
@@ -17,9 +17,6 @@ export default function OnboardingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // If user is already logged in but hasn't finished onboarding details,
-    // we move them to the final step. If they are already in the DB, 
-    // the dashboard redirect in page.tsx will handle them.
     if (!isUserLoading && user && step < 3) {
       setStep(3);
     }
@@ -32,7 +29,7 @@ export default function OnboardingPage() {
   };
 
   const handleVerifyCode = () => {
-    // Simulate email verification by signing in anonymously
+    // Simulation: Signs in anonymously for the prototype
     initiateAnonymousSignIn(auth);
   };
 
@@ -46,7 +43,7 @@ export default function OnboardingPage() {
       businessName: businessName || "My Store",
       ownerName: "Merchant",
       email: email,
-      phoneNumber: "", // Now optional or collected later
+      phoneNumber: "",
       bankAccountNumber: "XXXXXXXXXXXX",
       ifscCode: "IFSC0001234",
       businessType: "General Store",
@@ -98,7 +95,7 @@ export default function OnboardingPage() {
                 onClick={handleSendCode}
                 disabled={!email.includes("@")}
               >
-                Send Verification Code
+                Continue
                 <ArrowRight className="w-5 h-5" />
               </Button>
             </div>
@@ -106,9 +103,9 @@ export default function OnboardingPage() {
         ) : step === 2 ? (
           <div className="space-y-8 animate-in slide-in-from-right duration-300">
              <div>
-              <h2 className="text-2xl font-black text-primary mb-2">Verify Email</h2>
+              <h2 className="text-2xl font-black text-primary mb-2">Verify Simulation</h2>
               <p className="text-sm text-muted-foreground font-bold leading-relaxed">
-                Enter the 6-digit code sent to <b>{email}</b>.
+                Enter any 6-digit code. In this prototype, real emails are not sent.
               </p>
             </div>
 
@@ -129,9 +126,12 @@ export default function OnboardingPage() {
               Verify & Continue
             </Button>
             
-            <p className="text-center text-xs font-black uppercase tracking-widest text-muted-foreground">
-               Didn't receive? <button className="text-indigo-600 underline ml-1">Resend Code</button>
-            </p>
+            <div className="flex items-center gap-2 justify-center bg-blue-50 p-4 rounded-2xl border border-blue-100">
+              <Info className="w-4 h-4 text-blue-600 shrink-0" />
+              <p className="text-[10px] font-bold text-blue-800 leading-tight">
+                PROTOTYPE MODE: Verification is simulated. No real email will be sent to <b>{email}</b>.
+              </p>
+            </div>
           </div>
         ) : (
            <div className="space-y-8 animate-in slide-in-from-right duration-300">
