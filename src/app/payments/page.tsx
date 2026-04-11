@@ -5,12 +5,13 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { QrCode, Scan, IndianRupee, CheckCircle2, Download, Share2 } from "lucide-react";
+import { QrCode, Scan, IndianRupee, CheckCircle2, Download, Share2, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase";
 import { collection, getFirestore, serverTimestamp, doc, getDoc, increment } from "firebase/firestore";
+import { toast } from "@/hooks/use-toast";
 
 export default function PaymentsPage() {
   const { user } = useUser();
@@ -21,16 +22,22 @@ export default function PaymentsPage() {
 
   const handlePay = async () => {
     if (!amount || !user) return;
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast({ variant: "destructive", title: "Invalid Amount", description: "Please enter a valid payment amount." });
+      return;
+    }
+
     setIsProcessing(true);
 
     const db = getFirestore();
     const txnsRef = collection(db, "users", user.uid, "transactions");
     const userRef = doc(db, "users", user.uid);
-    const amountNum = parseFloat(amount);
     const now = new Date();
     const currentHour = now.getHours();
+    const today = now.toISOString().split('T')[0];
 
-    // 1. Record the transaction
+    // 1. Record the transaction (Data Generation)
     addDocumentNonBlocking(txnsRef, {
       userId: user.uid,
       amount: amountNum,
@@ -39,14 +46,11 @@ export default function PaymentsPage() {
       timestamp: serverTimestamp(),
       method: "UPI",
       payerIdentifier: payer || "Customer",
-      description: "Payment received via QR/ID",
+      description: "Payment received via Merchant QR",
     });
 
-    // 2. Update Daily Aggregates with Hourly Tracking
-    const today = now.toISOString().split('T')[0];
+    // 2. Update Daily Aggregates (Fast Analytics Layer)
     const aggregateRef = doc(db, "users", user.uid, "dailyBusinessAggregates", today);
-    
-    // Create an hourly map update
     const hourlyUpdate: Record<string, any> = {};
     hourlyUpdate[`hourlyTransactionCounts.${currentHour}`] = increment(1);
     
@@ -59,11 +63,9 @@ export default function PaymentsPage() {
       netEarnings: increment(amountNum),
       transactionCount: increment(1),
     }, { merge: true });
-    
-    // Explicitly update the hourly count field
     updateDocumentNonBlocking(aggregateRef, hourlyUpdate);
 
-    // 3. Update Overall Analytics Summary (Fast Analytics Layer)
+    // 3. Update Fast Analytics Summary
     const summaryRef = doc(db, "users", user.uid, "userAnalyticsSummary", "current");
     setDocumentNonBlocking(summaryRef, {
       userId: user.uid,
@@ -74,21 +76,18 @@ export default function PaymentsPage() {
       lastUpdatedAt: serverTimestamp()
     }, { merge: true });
 
-    // 4. Update Credit Score and Award Rewards
+    // 4. Update Credit Score & Rewards (Simulated Backend Trigger)
     try {
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const userData = userSnap.data();
-        const currentScore = userData.creditScore || 300;
-        const currentPoints = userData.rewardPoints || 0;
+        const prevScore = userData.creditScore || 300;
         
-        // Improve score based on transaction volume
-        const scoreGain = amountNum > 1000 ? 5 : 2;
-        const newScore = Math.min(900, currentScore + scoreGain);
+        // Scoring logic: higher volume + consistency = higher score
+        const scoreGain = amountNum > 500 ? 3 : 1;
+        const newScore = Math.min(900, prevScore + scoreGain);
         
-        // Award reward points (1 point per 100 rupees)
-        const pointsAwarded = Math.floor(amountNum / 100);
-        
+        // Eligibility logic: Tiers based on score
         let newEligible = 10000;
         if (newScore > 750) newEligible = 500000;
         else if (newScore > 650) newEligible = 250000;
@@ -98,68 +97,80 @@ export default function PaymentsPage() {
         updateDocumentNonBlocking(userRef, {
           creditScore: newScore,
           loanEligibleAmount: newEligible,
-          rewardPoints: increment(pointsAwarded),
-          lastUpdated: serverTimestamp()
+          rewardPoints: increment(Math.floor(amountNum / 100)),
+          lastLoginAt: serverTimestamp()
         });
 
-        // 5. Notify Score Increase
-        if (newScore > currentScore) {
-          const notifRef = collection(db, "users", user.uid, "notifications");
+        // 5. Trigger Notifications
+        const notifRef = collection(db, "users", user.uid, "notifications");
+        
+        // Payment Alert
+        addDocumentNonBlocking(notifRef, {
+          userId: user.uid,
+          type: "transaction_successful",
+          message: `Received ₹${amountNum.toLocaleString()} from ${payer || "Customer"}`,
+          isRead: false,
+          createdAt: serverTimestamp()
+        });
+
+        // Score Alert (if threshold crossed)
+        if (Math.floor(newScore / 50) > Math.floor(prevScore / 50)) {
           addDocumentNonBlocking(notifRef, {
             userId: user.uid,
             type: "credit_score_increase",
-            message: `Great news! Your credit score is now ${newScore}. Your loan eligibility has increased!`,
+            message: `Milestone reached! Your credit score is now ${newScore}. Check your new loan limit!`,
             isRead: false,
             createdAt: serverTimestamp()
           });
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Scoring update failed", e);
+    }
 
     setTimeout(() => {
       setShowSuccess(true);
       setIsProcessing(false);
-    }, 800);
+    }, 1000);
   };
 
   return (
     <AppShell>
-      <header className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-extrabold font-headline text-primary">Payments</h1>
+      <header className="mb-6">
+        <h1 className="text-2xl font-black text-primary tracking-tight">Payments</h1>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Accept Digital Payments</p>
       </header>
 
       <div className="space-y-6 pb-12">
         <Card className="premium-card overflow-hidden">
           <CardContent className="p-8 flex flex-col items-center">
             <div className="text-center mb-8">
-              <h2 className="text-xl font-black text-primary tracking-tight">Accept Payments</h2>
-              <p className="text-xs text-muted-foreground font-extrabold uppercase tracking-widest mt-1">Merchant QR Code</p>
+              <h2 className="text-xl font-black text-primary tracking-tight">Store QR Code</h2>
+              <p className="text-xs text-muted-foreground font-extrabold uppercase tracking-widest mt-1">Scan to pay Anamika Store</p>
             </div>
             
             <div className="relative w-64 h-64 bg-white p-6 rounded-[2.5rem] shadow-[0_15px_40px_rgba(0,0,0,0.06)] border border-gray-100 mb-8 flex items-center justify-center">
-               <div className="w-full h-full bg-gray-50 rounded-3xl flex items-center justify-center relative overflow-hidden group">
-                 <QrCode className="w-40 h-40 text-primary opacity-5 group-hover:scale-110 transition-transform" />
+               <div className="w-full h-full bg-gray-50 rounded-3xl flex items-center justify-center relative overflow-hidden">
+                 <QrCode className="w-40 h-40 text-primary/5" />
                  <div className="absolute inset-0 flex items-center justify-center p-2">
                     <Image 
-                        src="https://picsum.photos/seed/qr-merchant/400/400" 
-                        alt="Merchant QR Code" 
+                        src="https://picsum.photos/seed/merchant-qr/400/400" 
+                        alt="Merchant QR" 
                         width={240} 
                         height={240}
                         className="rounded-2xl"
+                        data-ai-hint="QR Code"
                     />
-                 </div>
-                 <div className="absolute bottom-2 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full border border-gray-100 shadow-sm">
-                    <p className="text-[10px] font-black text-primary">BHIM UPI</p>
                  </div>
                </div>
             </div>
 
             <div className="flex items-center gap-4 w-full">
-               <Button className="flex-1 h-14 rounded-2xl bg-indigo-50 text-indigo-600 border-none font-black flex items-center justify-center gap-2 hover:bg-indigo-100 transition-colors">
+               <Button variant="outline" className="flex-1 h-14 rounded-2xl border-gray-100 font-black gap-2">
                  <Download className="w-5 h-5" />
                  Save
                </Button>
-               <Button className="flex-1 h-14 rounded-2xl bg-indigo-50 text-indigo-600 border-none font-black flex items-center justify-center gap-2 hover:bg-indigo-100 transition-colors">
+               <Button variant="outline" className="flex-1 h-14 rounded-2xl border-gray-100 font-black gap-2">
                  <Share2 className="w-5 h-5" />
                  Share
                </Button>
@@ -168,14 +179,14 @@ export default function PaymentsPage() {
         </Card>
 
         <section className="premium-card p-6 border border-gray-50">
-          <h3 className="font-black text-primary mb-5 px-1">Quick Transfer</h3>
+          <h3 className="font-black text-primary mb-5 px-1">Simulate Receipt</h3>
           <div className="space-y-4">
             <div className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center group-focus-within:bg-emerald-50 transition-colors">
-                <IndianRupee className="w-4 h-4 text-primary group-focus-within:text-emerald-600" />
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center group-focus-within:bg-primary/10 transition-colors">
+                <IndianRupee className="w-4 h-4 text-primary" />
               </div>
               <Input 
-                className="h-16 bg-gray-50/50 border-2 border-transparent focus:border-emerald-500/20 focus:bg-white rounded-2xl pl-16 pr-6 font-black text-2xl tracking-tighter tabular-nums transition-all" 
+                className="h-16 bg-gray-50/50 border-2 border-transparent focus:border-primary/20 focus:bg-white rounded-2xl pl-16 pr-6 font-black text-2xl tracking-tighter tabular-nums transition-all" 
                 placeholder="0.00" 
                 type="number"
                 value={amount}
@@ -184,8 +195,8 @@ export default function PaymentsPage() {
             </div>
             <div className="relative">
               <Input 
-                className="h-14 bg-gray-50/50 border-2 border-transparent focus:border-indigo-500/20 focus:bg-white rounded-2xl px-5 font-extrabold transition-all" 
-                placeholder="Customer Name or UPI ID" 
+                className="h-14 bg-gray-50/50 border-2 border-transparent focus:border-primary/20 focus:bg-white rounded-2xl px-5 font-extrabold transition-all" 
+                placeholder="Customer Name (Optional)" 
                 value={payer}
                 onChange={(e) => setPayer(e.target.value)}
               />
@@ -193,17 +204,22 @@ export default function PaymentsPage() {
             <Button 
               className={cn(
                 "w-full h-16 rounded-2xl font-black text-white text-lg mt-2 transition-all shadow-xl active:scale-95",
-                amount && !isProcessing ? "indigo-gradient" : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                amount && !isProcessing ? "blue-gradient" : "bg-gray-200 text-gray-400 cursor-not-allowed"
               )}
               onClick={handlePay}
               disabled={!amount || isProcessing}
             >
-              {isProcessing ? "Processing..." : "Receive Payment"}
+              {isProcessing ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Updating Score...
+                </div>
+              ) : "Receive Payment"}
             </Button>
           </div>
         </section>
 
-        <Button className="w-full h-16 rounded-3xl gradient-cta text-white font-black text-lg gap-3 shadow-xl active:scale-95">
+        <Button className="w-full h-16 rounded-3xl bg-primary text-white font-black text-lg gap-3 shadow-xl active:scale-95">
           <Scan className="w-6 h-6" />
           Scan & Pay
         </Button>
@@ -219,29 +235,29 @@ export default function PaymentsPage() {
              <Card className="w-full border-2 border-dashed border-gray-100 bg-gray-50/30 rounded-3xl">
                <CardContent className="p-6 space-y-4">
                   <div className="flex justify-between items-center text-sm">
-                     <span className="text-muted-foreground font-extrabold uppercase tracking-wider text-[10px]">From</span>
+                     <span className="text-muted-foreground font-extrabold uppercase tracking-wider text-[10px]">Payer</span>
                      <span className="font-black text-primary">{payer || "Customer"}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
-                     <span className="text-muted-foreground font-extrabold uppercase tracking-wider text-[10px]">Transaction ID</span>
-                     <span className="font-black font-mono text-primary">CP{Math.floor(Math.random() * 900000000 + 100000000)}</span>
+                     <span className="text-muted-foreground font-extrabold uppercase tracking-wider text-[10px]">Impact</span>
+                     <span className="font-black text-emerald-600">+ Score Improvement</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
-                     <span className="text-muted-foreground font-extrabold uppercase tracking-wider text-[10px]">Date & Time</span>
-                     <span className="font-black text-primary">{new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                     <span className="text-muted-foreground font-extrabold uppercase tracking-wider text-[10px]">Date</span>
+                     <span className="font-black text-primary">{new Date().toLocaleTimeString()}</span>
                   </div>
                </CardContent>
              </Card>
              
              <Button 
-               className="mt-12 w-full h-16 rounded-2xl indigo-gradient font-black text-white text-lg shadow-xl active:scale-95" 
+               className="mt-12 w-full h-16 rounded-2xl blue-gradient font-black text-white text-lg shadow-xl active:scale-95" 
                onClick={() => {
                  setShowSuccess(false);
                  setAmount("");
                  setPayer("");
                }}
              >
-               Done
+               Return to Store
              </Button>
           </div>
         )}

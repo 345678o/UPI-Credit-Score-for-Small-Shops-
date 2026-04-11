@@ -4,6 +4,7 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ShieldCheck, TrendingUp, History, Sparkles, ChevronRight, IndianRupee, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { creditScoreImprovementRecommendations } from "@/ai/flows/credit-score-improvement-recommendations";
@@ -15,7 +16,7 @@ import { doc, getFirestore } from "firebase/firestore";
 export default function CreditPage() {
   const { user } = useUser();
   const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAiLoading, setIsAiLoading] = useState(true);
 
   const db = getFirestore();
 
@@ -23,56 +24,55 @@ export default function CreditPage() {
     if (!user) return null;
     return doc(db, "users", user.uid);
   }, [user]);
-
-  const { data: merchantData } = useDoc(userRef);
+  const { data: merchantData, isLoading: isMerchantLoading } = useDoc(userRef);
 
   const summaryRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(db, "users", user.uid, "userAnalyticsSummary", "current");
   }, [user]);
-
-  const { data: summaryData } = useDoc(summaryRef);
+  const { data: summaryData, isLoading: isSummaryLoading } = useDoc(summaryRef);
 
   useEffect(() => {
     async function loadRecs() {
-      if (!merchantData) return;
+      if (!merchantData || !summaryData) return;
       try {
         const result = await creditScoreImprovementRecommendations({
-          currentCreditScore: merchantData.creditScore || 350,
+          currentCreditScore: merchantData.creditScore || 300,
           transactionVolume: summaryData?.totalEarningsOverall || 0,
-          paymentConsistency: 95, // Derived from transaction regularity
-          revenueGrowth: 15, // Derived from weekly trend
+          paymentConsistency: 95, // Logic for consistency can be added to summaryData
+          revenueGrowth: 15,
         });
         setRecommendations(result.recommendations);
       } catch (e) {
         setRecommendations([
-          { title: "Maintain Transaction Volume", description: "Keep your daily transaction volume consistent to build trust with lenders." },
-          { title: "On-time Utility Payments", description: "Your digital bill payments contribute significantly to your business credit profile." }
+          { title: "Accept more digital payments", description: "Convert cash sales to digital to build your verifiable revenue history." },
+          { title: "Consistent daily volume", description: "Regular daily transactions are better than large, irregular spikes." }
         ]);
       } finally {
-        setIsLoading(false);
+        setIsAiLoading(false);
       }
     }
     loadRecs();
   }, [merchantData, summaryData]);
 
-  const score = merchantData?.creditScore || 350;
+  const score = merchantData?.creditScore || 300;
+  const eligibleAmount = merchantData?.loanEligibleAmount || 0;
 
   return (
     <AppShell>
       <header className="mb-8">
-        <h1 className="text-2xl font-extrabold font-headline text-primary">Credit Dashboard</h1>
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Status: {score > 600 ? 'High Eligibility' : 'Developing Profile'}</p>
+        <h1 className="text-2xl font-extrabold text-primary tracking-tight">Credit Power</h1>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Based on UPI Transaction Data</p>
       </header>
 
       <div className="space-y-6 pb-8">
-        <Card className="indigo-gradient text-white border-none shadow-2xl overflow-hidden relative rounded-[2rem]">
+        <Card className="blue-gradient text-white border-none shadow-2xl overflow-hidden relative rounded-[2rem]">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-[80px]"></div>
           <CardContent className="p-10 flex flex-col items-center text-center">
-            <p className="text-white/60 text-[10px] font-extrabold uppercase tracking-[3px] mb-8">Current Score</p>
+            <p className="text-white/60 text-[10px] font-extrabold uppercase tracking-[3px] mb-8">Alternative Score</p>
             
             <div className="relative w-56 h-56 flex items-center justify-center">
-               <svg className="w-full h-full -rotate-90 filter drop-shadow-[0_0_15px_rgba(30,163,102,0.3)]">
+               <svg className="w-full h-full -rotate-90">
                   <circle
                     cx="112"
                     cy="112"
@@ -86,10 +86,10 @@ export default function CreditPage() {
                     cy="112"
                     r="96"
                     fill="transparent"
-                    stroke="#1EA366"
+                    stroke="#10b981"
                     strokeWidth="14"
                     strokeDasharray={603}
-                    strokeDashoffset={603 - (603 * score / 900)}
+                    strokeDashoffset={603 - (603 * Math.min(score, 900) / 900)}
                     strokeLinecap="round"
                     className="transition-all duration-1000 ease-out"
                   />
@@ -97,7 +97,7 @@ export default function CreditPage() {
                <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-6xl font-extrabold tracking-tighter tabular-nums">{score}</span>
                   <span className="text-emerald-400 font-black text-xs uppercase tracking-[2px] mt-1">
-                    {score > 700 ? "Excellent" : score > 500 ? "Good" : "Average"}
+                    {score > 700 ? "EXCELLENT" : score > 500 ? "GOOD" : "DEVELOPING"}
                   </span>
                </div>
             </div>
@@ -112,28 +112,28 @@ export default function CreditPage() {
 
         <section className="grid grid-cols-3 gap-3">
           {[
-            { label: "Volume", value: score > 500 ? "High" : "Mid", icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50" },
-            { label: "Consistency", value: score > 600 ? "98%" : "85%", icon: History, color: "text-indigo-600", bg: "bg-indigo-50" },
+            { label: "Volume", value: score > 500 ? "Strong" : "Growing", icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50" },
+            { label: "Regularity", value: score > 600 ? "98%" : "85%", icon: History, color: "text-primary", bg: "bg-primary/5" },
             { label: "Growth", value: score > 700 ? "25%" : "12%", icon: Zap, color: "text-orange-500", bg: "bg-orange-50" },
           ].map((item) => (
-            <div key={item.label} className="bg-white p-4 rounded-3xl shadow-sm border border-gray-50 flex flex-col gap-2 transition-transform active:scale-95">
+            <div key={item.label} className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-2 transition-transform active:scale-95">
               <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center", item.bg)}>
                  <item.icon className={cn("w-4 h-4", item.color)} />
               </div>
               <div>
-                <p className="text-[10px] font-extrabold text-muted-foreground uppercase">{item.label}</p>
+                <p className="text-[9px] font-black text-muted-foreground uppercase">{item.label}</p>
                 <p className="text-sm font-black text-primary tabular-nums">{item.value}</p>
               </div>
             </div>
           ))}
         </section>
 
-        <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[2rem]">
+        <Card className="border-none shadow-xl bg-white overflow-hidden rounded-[2rem] border border-gray-50">
           <CardContent className="p-0">
              <div className="bg-emerald-500 p-6 flex justify-between items-center text-white">
                 <div>
-                   <h3 className="font-black text-xl tracking-tight">Loan Pre-Approved!</h3>
-                   <p className="text-white/80 text-[11px] font-bold uppercase tracking-wider">Unlock Instant Capital</p>
+                   <h3 className="font-black text-xl tracking-tight">Access Capital</h3>
+                   <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider">Unsecured Business Loan</p>
                 </div>
                 <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
                    <IndianRupee className="w-8 h-8 text-white" />
@@ -142,22 +142,30 @@ export default function CreditPage() {
              <div className="p-6">
                 <div className="flex justify-between items-end mb-6">
                    <div>
-                      <p className="text-muted-foreground text-[10px] font-extrabold uppercase mb-1">Eligible Amount</p>
-                      <p className="text-4xl font-extrabold text-primary tracking-tighter tabular-nums">
-                        ₹{(merchantData?.loanEligibleAmount || 0).toLocaleString()}
-                      </p>
+                      <p className="text-muted-foreground text-[10px] font-extrabold uppercase mb-1">Pre-approved Limit</p>
+                      {isMerchantLoading ? (
+                        <Skeleton className="h-10 w-32 mt-1" />
+                      ) : (
+                        <p className="text-4xl font-extrabold text-primary tracking-tighter tabular-nums">
+                          ₹{eligibleAmount.toLocaleString()}
+                        </p>
+                      )}
                    </div>
                    <div className="text-right">
-                      <p className="text-muted-foreground text-[10px] font-extrabold uppercase mb-1">Low EMI from</p>
-                      <p className="text-xl font-black text-primary tabular-nums">₹{Math.round((merchantData?.loanEligibleAmount || 0) * 0.08)}<span className="text-xs font-bold text-muted-foreground">/mo</span></p>
+                      <p className="text-muted-foreground text-[10px] font-extrabold uppercase mb-1">No Collateral</p>
+                      <p className="text-xs font-black text-emerald-600">Zero Paperwork</p>
                    </div>
                 </div>
                 <Button 
-                   className="w-full h-16 rounded-2xl indigo-gradient text-white font-black text-lg shadow-xl uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50" 
-                   asChild={!!merchantData?.loanEligibleAmount}
-                   disabled={!merchantData?.loanEligibleAmount}
+                   className="w-full h-16 rounded-2xl blue-gradient text-white font-black text-lg shadow-xl uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50" 
+                   asChild={eligibleAmount > 0}
+                   disabled={eligibleAmount <= 0}
                 >
-                   {merchantData?.loanEligibleAmount ? <Link href="/credit/apply">Get Loan Now</Link> : <span>Grow Score to Unlock</span>}
+                   {eligibleAmount > 0 ? (
+                     <Link href="/credit/apply">Apply for ₹{eligibleAmount.toLocaleString()}</Link>
+                   ) : (
+                     <span>Accept Payments to Unlock</span>
+                   )}
                 </Button>
              </div>
           </CardContent>
@@ -165,19 +173,19 @@ export default function CreditPage() {
 
         <section className="space-y-4">
           <div className="flex items-center gap-2 px-1">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center">
-               <Sparkles className="w-5 h-5 text-indigo-600" />
+            <div className="w-10 h-10 rounded-2xl bg-primary/5 flex items-center justify-center">
+               <Sparkles className="w-5 h-5 text-primary" />
             </div>
-            <h3 className="font-black text-primary">Expert Recommendations</h3>
+            <h3 className="font-black text-primary">Intelligence & Advice</h3>
           </div>
           
           <div className="space-y-3">
-            {isLoading ? (
-              [1, 2].map(i => <div key={i} className="h-24 bg-gray-100 animate-pulse rounded-3xl" />)
-            ) : (
+            {isAiLoading ? (
+              [1, 2].map(i => <Skeleton key={i} className="h-24 w-full rounded-3xl" />)
+            ) : recommendations.length > 0 ? (
               recommendations.map((rec, i) => (
-                <div key={i} className="bg-white p-5 rounded-3xl border border-gray-50 shadow-sm flex gap-4 items-start">
-                   <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center shrink-0">
+                <div key={i} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex gap-4 items-start">
+                   <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
                       <ShieldCheck className="w-6 h-6 text-emerald-600" />
                    </div>
                    <div className="flex-1">
@@ -189,6 +197,8 @@ export default function CreditPage() {
                    <ChevronRight className="w-4 h-4 text-gray-300 mt-1" />
                 </div>
               ))
+            ) : (
+              <p className="text-center text-xs text-muted-foreground py-8">No advice yet. Start selling to see insights.</p>
             )}
           </div>
         </section>
