@@ -1,4 +1,3 @@
-
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -27,8 +26,10 @@ export default function PaymentsPage() {
     const txnsRef = collection(db, "users", user.uid, "transactions");
     const userRef = doc(db, "users", user.uid);
     const amountNum = parseFloat(amount);
+    const now = new Date();
+    const currentHour = now.getHours();
 
-    // 1. Record the transaction in the database
+    // 1. Record the transaction
     addDocumentNonBlocking(txnsRef, {
       userId: user.uid,
       amount: amountNum,
@@ -40,9 +41,13 @@ export default function PaymentsPage() {
       description: "Payment received via QR/ID",
     });
 
-    // 2. Update Daily Aggregates for Analytics in the database
-    const today = new Date().toISOString().split('T')[0];
+    // 2. Update Daily Aggregates with Hourly Tracking
+    const today = now.toISOString().split('T')[0];
     const aggregateRef = doc(db, "users", user.uid, "dailyBusinessAggregates", today);
+    
+    // Create an hourly map update
+    const hourlyUpdate: Record<string, any> = {};
+    hourlyUpdate[`hourlyTransactionCounts.${currentHour}`] = increment(1);
     
     setDocumentNonBlocking(aggregateRef, {
       id: today,
@@ -53,43 +58,57 @@ export default function PaymentsPage() {
       netEarnings: increment(amountNum),
       transactionCount: increment(1),
     }, { merge: true });
+    
+    // Explicitly update the hourly count field
+    updateDocumentNonBlocking(aggregateRef, hourlyUpdate);
 
-    // 3. Simulate Backend Logic: Recalculate Credit Score and Loan Eligibility
+    // 3. Update Overall Analytics Summary (Fast Analytics Layer)
+    const summaryRef = doc(db, "users", user.uid, "userAnalyticsSummary", "current");
+    setDocumentNonBlocking(summaryRef, {
+      userId: user.uid,
+      totalTransactionsCount: increment(1),
+      totalEarningsOverall: increment(amountNum),
+      weeklyEarnings: increment(amountNum), // Simplified: should ideally reset weekly
+      monthlyEarnings: increment(amountNum), // Simplified
+      lastUpdatedAt: serverTimestamp()
+    }, { merge: true });
+
+    // 4. Recalculate Credit Score
     try {
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const userData = userSnap.data();
         const currentScore = userData.creditScore || 300;
         
-        // Simulating score improvement logic
-        const newScore = Math.min(900, currentScore + Math.floor(Math.random() * 5) + 3);
+        // Improve score based on transaction volume
+        const scoreGain = amountNum > 1000 ? 5 : 2;
+        const newScore = Math.min(900, currentScore + scoreGain);
         
         let newEligible = 10000;
-        if (newScore > 750) newEligible = 300000;
-        else if (newScore > 650) newEligible = 150000;
-        else if (newScore > 550) newEligible = 75000;
-        else if (newScore > 450) newEligible = 35000;
+        if (newScore > 750) newEligible = 500000;
+        else if (newScore > 650) newEligible = 250000;
+        else if (newScore > 550) newEligible = 100000;
+        else if (newScore > 450) newEligible = 50000;
 
-        // Persist score updates to database
         updateDocumentNonBlocking(userRef, {
           creditScore: newScore,
           loanEligibleAmount: newEligible,
           lastUpdated: serverTimestamp()
         });
 
-        // 4. Create a notification in the database
-        const notifRef = collection(db, "users", user.uid, "notifications");
-        addDocumentNonBlocking(notifRef, {
-          userId: user.uid,
-          type: "transaction_successful",
-          message: `Received ₹${amountNum.toLocaleString()} from ${payer || "Customer"}. Score improved to ${newScore}!`,
-          isRead: false,
-          createdAt: serverTimestamp()
-        });
+        // 5. Notify Score Increase
+        if (newScore > currentScore) {
+          const notifRef = collection(db, "users", user.uid, "notifications");
+          addDocumentNonBlocking(notifRef, {
+            userId: user.uid,
+            type: "credit_score_increase",
+            message: `Great news! Your credit score is now ${newScore}. Your loan eligibility has increased!`,
+            isRead: false,
+            createdAt: serverTimestamp()
+          });
+        }
       }
-    } catch (e) {
-      // Errors are handled globally by the error emitter in mutation functions
-    }
+    } catch (e) {}
 
     setTimeout(() => {
       setShowSuccess(true);
