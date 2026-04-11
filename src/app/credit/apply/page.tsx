@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -27,6 +28,7 @@ export default function LoanApplyPage() {
     const db = getFirestore();
     const loanRef = collection(db, "users", user.uid, "loanApplications");
 
+    // Persist loan application to the database
     addDocumentNonBlocking(loanRef, {
       userId: user.uid,
       requestedAmount: amount[0],
@@ -38,12 +40,12 @@ export default function LoanApplyPage() {
       outstandingAmount: amount[0]
     });
 
-    // Create a notification for the application
+    // Create a notification for the application in the database
     const notifRef = collection(db, "users", user.uid, "notifications");
     addDocumentNonBlocking(notifRef, {
       userId: user.uid,
       type: "loan_approved",
-      message: `Your loan application for ₹${amount[0].toLocaleString()} is being processed.`,
+      message: `Your loan application for ₹${amount[0].toLocaleString()} has been submitted successfully.`,
       isRead: false,
       createdAt: serverTimestamp()
     });

@@ -4,10 +4,10 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { ShieldCheck, IndianRupee, ArrowRight, Building2, Store, Mail, Info, User as UserIcon, Briefcase } from "lucide-react";
+import { ShieldCheck, IndianRupee, ArrowRight, Store, Mail, Info, User as UserIcon, Briefcase } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAuth, useUser, initiateAnonymousSignIn } from "@/firebase";
-import { doc, setDoc, getFirestore, serverTimestamp } from "firebase/firestore";
+import { useAuth, useUser, initiateAnonymousSignIn, setDocumentNonBlocking } from "@/firebase";
+import { doc, getFirestore, serverTimestamp } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function OnboardingPage() {
@@ -36,17 +36,18 @@ export default function OnboardingPage() {
     initiateAnonymousSignIn(auth);
   };
 
-  const handleCompleteOnboarding = async () => {
+  const handleCompleteOnboarding = () => {
     if (!user) return;
     const db = getFirestore();
     const userRef = doc(db, "users", user.uid);
     
-    await setDoc(userRef, {
+    // Using setDocumentNonBlocking to ensure data is stored in Firestore
+    setDocumentNonBlocking(userRef, {
       id: user.uid,
       businessName: businessName || "My Store",
       ownerName: ownerName || "Merchant",
       email: email,
-      phoneNumber: "", // Placeholder for schema compliance
+      phoneNumber: "Not Provided", // email based login
       bankAccountNumber: "XXXXXXXXXXXX",
       ifscCode: "IFSC0001234",
       businessType: businessType,

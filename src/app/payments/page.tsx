@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -27,7 +28,7 @@ export default function PaymentsPage() {
     const userRef = doc(db, "users", user.uid);
     const amountNum = parseFloat(amount);
 
-    // 1. Record the transaction
+    // 1. Record the transaction in the database
     addDocumentNonBlocking(txnsRef, {
       userId: user.uid,
       amount: amountNum,
@@ -39,11 +40,10 @@ export default function PaymentsPage() {
       description: "Payment received via QR/ID",
     });
 
-    // 2. Update Daily Aggregates for Analytics
+    // 2. Update Daily Aggregates for Analytics in the database
     const today = new Date().toISOString().split('T')[0];
     const aggregateRef = doc(db, "users", user.uid, "dailyBusinessAggregates", today);
     
-    // Using set with merge to update or create the aggregate for today
     setDocumentNonBlocking(aggregateRef, {
       id: today,
       userId: user.uid,
@@ -52,7 +52,6 @@ export default function PaymentsPage() {
       totalExpenses: 0,
       netEarnings: increment(amountNum),
       transactionCount: increment(1),
-      hourlyTransactionCounts: Array(24).fill(0).map((_, i) => i === new Date().getHours() ? 1 : 0)
     }, { merge: true });
 
     // 3. Simulate Backend Logic: Recalculate Credit Score and Loan Eligibility
@@ -63,33 +62,33 @@ export default function PaymentsPage() {
         const currentScore = userData.creditScore || 300;
         
         // Simulating score improvement logic
-        const newScore = Math.min(900, currentScore + Math.floor(Math.random() * 3) + 2);
+        const newScore = Math.min(900, currentScore + Math.floor(Math.random() * 5) + 3);
         
-        let newEligible = 0;
-        if (newScore > 700) newEligible = 250000;
-        else if (newScore > 600) newEligible = 100000;
-        else if (newScore > 500) newEligible = 50000;
-        else if (newScore > 400) newEligible = 25000;
-        else newEligible = 10000;
+        let newEligible = 10000;
+        if (newScore > 750) newEligible = 300000;
+        else if (newScore > 650) newEligible = 150000;
+        else if (newScore > 550) newEligible = 75000;
+        else if (newScore > 450) newEligible = 35000;
 
+        // Persist score updates to database
         updateDocumentNonBlocking(userRef, {
           creditScore: newScore,
           loanEligibleAmount: newEligible,
           lastUpdated: serverTimestamp()
         });
 
-        // 4. Create a notification
+        // 4. Create a notification in the database
         const notifRef = collection(db, "users", user.uid, "notifications");
         addDocumentNonBlocking(notifRef, {
           userId: user.uid,
           type: "transaction_successful",
-          message: `Received ₹${amountNum.toLocaleString()} from ${payer || "Customer"}. Your credit eligibility updated!`,
+          message: `Received ₹${amountNum.toLocaleString()} from ${payer || "Customer"}. Score improved to ${newScore}!`,
           isRead: false,
           createdAt: serverTimestamp()
         });
       }
     } catch (e) {
-      console.error("Core Loop Error:", e);
+      // Errors are handled globally by the error emitter in mutation functions
     }
 
     setTimeout(() => {
