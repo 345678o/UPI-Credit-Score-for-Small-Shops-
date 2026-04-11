@@ -1,4 +1,3 @@
-
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -184,36 +183,38 @@ export default function Dashboard() {
         <div className="flex justify-between items-center mb-5 px-1">
           <h3 className="font-black font-headline text-lg text-primary tracking-tight">Recent Activity</h3>
           <Button variant="link" className="text-[11px] p-0 h-auto font-black text-secondary uppercase tracking-widest hover:no-underline" asChild>
-            <Link href="/analytics">View Insights</Link>
+            <Link href="/transactions">View All History</Link>
           </Button>
         </div>
         <div className="space-y-3">
           {transactions?.map((tx: any) => (
-            <div key={tx.id} className="flex items-center justify-between p-4 bg-white rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-gray-50/50">
-              <div className="flex items-center gap-4">
-                <div className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center",
-                  tx.type === "credit" ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"
-                )}>
-                  {tx.type === "credit" ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+            <Link key={tx.id} href={`/transactions/${tx.id}`}>
+              <div className="flex items-center justify-between p-4 bg-white rounded-3xl shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-gray-50/50 active:scale-[0.98] transition-all">
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "w-12 h-12 rounded-2xl flex items-center justify-center",
+                    tx.type === "credit" ? "bg-emerald-50 text-emerald-600" : "bg-orange-50 text-orange-600"
+                  )}>
+                    {tx.type === "credit" ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-primary">{tx.payerIdentifier || "Customer"}</p>
+                    <p className="text-[11px] text-muted-foreground font-bold opacity-70">
+                      {tx.timestamp?.toDate ? tx.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"} • {tx.method}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-black text-primary">{tx.payerIdentifier || "Customer"}</p>
-                  <p className="text-[11px] text-muted-foreground font-bold opacity-70">
-                    {tx.timestamp?.toDate ? tx.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"} • {tx.method}
+                <div className="text-right">
+                  <p className={cn("text-base font-black tabular-nums tracking-tighter", tx.type === "credit" ? "text-emerald-600" : "text-primary")}>
+                    {tx.type === "credit" ? "+" : "-"}₹{tx.amount.toLocaleString()}
                   </p>
+                  <div className="flex items-center justify-end gap-1 mt-0.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                    <p className="text-[9px] text-muted-foreground font-black uppercase tracking-tighter">{tx.status}</p>
+                  </div>
                 </div>
               </div>
-              <div className="text-right">
-                <p className={cn("text-base font-black tabular-nums tracking-tighter", tx.type === "credit" ? "text-emerald-600" : "text-primary")}>
-                  {tx.type === "credit" ? "+" : "-"}₹{tx.amount.toLocaleString()}
-                </p>
-                <div className="flex items-center justify-end gap-1 mt-0.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                  <p className="text-[9px] text-muted-foreground font-black uppercase tracking-tighter">{tx.status}</p>
-                </div>
-              </div>
-            </div>
+            </Link>
           ))}
           {(!transactions || transactions.length === 0) && (
             <div className="text-center py-10 bg-gray-50/50 rounded-[2rem] border border-dashed border-gray-200">
