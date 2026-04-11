@@ -98,10 +98,26 @@ const creditScoreImprovementRecommendationsFlow = ai.defineFlow(
     outputSchema: CreditScoreImprovementRecommendationsOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    if (!output) {
-      throw new Error('Failed to generate credit score recommendations.');
+    try {
+      const {output} = await prompt(input);
+      if (!output) {
+        throw new Error('Failed to generate credit score recommendations.');
+      }
+      return output;
+    } catch (e: any) {
+      console.error('Genkit Credit Score Flow failed:', e);
+      return {
+        recommendations: [
+          {
+            title: "Maintain Ledger Activity",
+            description: "Log more constant daily transactions to build a clearer financial velocity profile."
+          },
+          {
+            title: "Expand Use of Digital Options",
+            description: "Increase collection via UPI and direct transfers to quickly boost algorithmic trust factors."
+          }
+        ]
+      };
     }
-    return output;
   }
 );

@@ -203,7 +203,9 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 
 // Enhanced backend functions
 export class EnhancedBackend {
-  private db = getFirestore();
+  private get db() {
+    return getFirestore();
+  }
   private retryConfig: RetryConfig;
 
   constructor(retryConfig: Partial<RetryConfig> = {}) {
