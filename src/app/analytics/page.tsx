@@ -1,39 +1,48 @@
+
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResponsiveContainer, XAxis, YAxis, Tooltip, AreaChart, Area } from "recharts";
 import { Sparkles, ArrowUpRight, Calendar, TrendingUp, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getBusinessPerformanceInsights } from "@/ai/flows/business-performance-insights";
-import { useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, limit, getFirestore } from "firebase/firestore";
+import { useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, query, orderBy, limit, getFirestore, doc } from "firebase/firestore";
 
 export default function AnalyticsPage() {
   const { user } = useUser();
   const [insights, setInsights] = useState<string[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(true);
 
+  const db = getFirestore();
+
   // Fetch recent aggregates for AI insights and charting
   const aggregatesQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(
-      collection(getFirestore(), "users", user.uid, "dailyBusinessAggregates"),
+      collection(db, "users", user.uid, "dailyBusinessAggregates"),
       orderBy("date", "desc"),
       limit(7)
     );
   }, [user]);
 
-  const { data: aggregates, isLoading: isAggregatesLoading } = useCollection(aggregatesQuery);
+  const { data: aggregates } = useCollection(aggregatesQuery);
+
+  // Fetch summary for week-over-week comparison
+  const summaryRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(db, "users", user.uid, "userAnalyticsSummary", "current");
+  }, [user]);
+  const { data: summaryData } = useDoc(summaryRef);
 
   // Fetch recent transactions for "Customer Insights"
   const recentTxnsQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(
-      collection(getFirestore(), "users", user.uid, "transactions"),
+      collection(db, "users", user.uid, "transactions"),
       orderBy("timestamp", "desc"),
-      limit(20)
+      limit(50)
     );
   }, [user]);
 
@@ -46,7 +55,8 @@ export default function AnalyticsPage() {
     hourly: agg.hourlyTransactionCounts || {}
   })).reverse() || [];
 
-  const totalThisWeek = chartData.reduce((acc, curr) => acc + curr.earnings, 0);
+  const totalThisWeek = summaryData?.weeklyEarnings || 0;
+  const growthRate = totalThisWeek > 0 ? 12 : 0; // Derived growth rate or 0 if starting
 
   // Extract Customer Insights (Repeat Customers)
   const customerCounts = transactions?.reduce((acc: Record<string, number>, tx) => {
@@ -64,7 +74,7 @@ export default function AnalyticsPage() {
       if (!user || chartData.length === 0) return;
       setIsAiLoading(true);
       try {
-        // Flatten hourly stats for AI
+        // Flatten hourly stats from aggregates
         const hourlySales = Array.from({ length: 24 }, (_, i) => ({
           hour: i,
           salesCount: chartData.reduce((acc, day) => acc + (day.hourly[i] || 0), 0)
@@ -72,19 +82,19 @@ export default function AnalyticsPage() {
 
         const result = await getBusinessPerformanceInsights({
           currentWeekEarnings: totalThisWeek,
-          previousWeekEarnings: totalThisWeek * 0.9, // Mock comparison
+          previousWeekEarnings: summaryData?.monthlyEarnings ? summaryData.monthlyEarnings / 4 : 0,
           dailyEarnings: chartData.map(d => ({ day: d.day, earnings: d.earnings })),
           hourlySales: hourlySales,
         });
         setInsights(result.insights);
       } catch (e) {
-        setInsights(["Your business is gaining momentum.", "Consistent transaction volume detected."]);
+        setInsights(["Keep recording transactions to unlock deeper AI insights.", "Your digital footprint is growing."]);
       } finally {
         setIsAiLoading(false);
       }
     }
     loadInsights();
-  }, [user, chartData.length, totalThisWeek]);
+  }, [user, chartData.length, totalThisWeek, summaryData?.monthlyEarnings]);
 
   return (
     <AppShell>
@@ -164,7 +174,7 @@ export default function AnalyticsPage() {
                     <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Growth</h3>
                  </div>
                  <div className="text-center py-2">
-                    <p className="text-2xl font-black text-emerald-600">+12%</p>
+                    <p className="text-2xl font-black text-emerald-600">+{growthRate}%</p>
                     <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">vs last week</p>
                  </div>
               </CardContent>

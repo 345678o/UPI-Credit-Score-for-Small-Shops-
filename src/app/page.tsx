@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -12,10 +13,6 @@ import { doc, collection, query, limit, orderBy, getFirestore } from "firebase/f
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-const sparklineData = [
-  { value: 400 }, { value: 300 }, { value: 600 }, { value: 450 }, { value: 700 }, { value: 900 }, { value: 1100 },
-];
-
 export default function Dashboard() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
@@ -26,16 +23,18 @@ export default function Dashboard() {
     }
   }, [user, isUserLoading, router]);
 
+  const db = getFirestore();
+
   const userRef = useMemoFirebase(() => {
     if (!user) return null;
-    return doc(getFirestore(), "users", user.uid);
+    return doc(db, "users", user.uid);
   }, [user]);
 
   const { data: merchantData } = useDoc(userRef);
 
   const summaryRef = useMemoFirebase(() => {
     if (!user) return null;
-    return doc(getFirestore(), "users", user.uid, "userAnalyticsSummary", "current");
+    return doc(db, "users", user.uid, "userAnalyticsSummary", "current");
   }, [user]);
 
   const { data: summaryData } = useDoc(summaryRef);
@@ -43,13 +42,25 @@ export default function Dashboard() {
   const transactionsQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(
-      collection(getFirestore(), "users", user.uid, "transactions"),
+      collection(db, "users", user.uid, "transactions"),
       orderBy("timestamp", "desc"),
       limit(4)
     );
   }, [user]);
 
   const { data: transactions } = useCollection(transactionsQuery);
+
+  // Fetch aggregates for sparkline
+  const sparklineQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(
+      collection(db, "users", user.uid, "dailyBusinessAggregates"),
+      orderBy("date", "desc"),
+      limit(7)
+    );
+  }, [user]);
+
+  const { data: aggregates } = useCollection(sparklineQuery);
 
   if (isUserLoading || !user) {
     return (
@@ -60,6 +71,11 @@ export default function Dashboard() {
   }
 
   const pulseValue = summaryData?.weeklyEarnings || 0;
+  
+  // Transform aggregates into sparkline data, or use a default flat line if no data
+  const sparklineData = aggregates?.length ? 
+    aggregates.map(agg => ({ value: agg.totalEarnings })).reverse() : 
+    [{ value: 0 }, { value: 0 }];
 
   return (
     <AppShell>
