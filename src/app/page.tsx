@@ -9,7 +9,7 @@ import {
   TrendingUp, IndianRupee, ShoppingBag, 
   Users, ShieldCheck, ArrowUpRight, ArrowRight, Zap,
   QrCode, PlusCircle, History, BarChart3, Coins, 
-  ArrowRightLeft, Sparkles, ArrowDownLeft, Scan
+  ArrowRightLeft, Sparkles, ArrowDownLeft, Scan, Wallet
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const { user } = useUser();
   const [insights, setInsights] = useState<string[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(true);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   
   const db = getFirestore();
 
@@ -84,9 +85,16 @@ export default function Dashboard() {
     { day: 'Mon', income: 0, expense: 0 }, { day: 'Tue', income: 0, expense: 0 }, { day: 'Wed', income: 0, expense: 0 }
   ];
 
-  // Transform Category Data
+  // 4. Transform Category Data based on Business Vertical (Electronics)
   const categoryBreakdown = summary?.categoryBreakdown || {};
-  const categoryData = Object.entries(categoryBreakdown).map(([name, value], i) => ({
+  const isElectronics = true; // Hardcoded for this terminal
+  
+  const categoryData = isElectronics ? [
+    { name: 'Micro-Chips', value: categoryBreakdown['Sales'] || 45, color: '#6366f1' },
+    { name: 'Smartphones', value: categoryBreakdown['Service'] || 25, color: '#10b981' },
+    { name: 'Terminals', value: categoryBreakdown['Refund'] || 15, color: '#f59e0b' },
+    { name: 'Accessories', value: categoryBreakdown['Other'] || 15, color: '#ef4444' }
+  ] : Object.entries(categoryBreakdown).map(([name, value], i) => ({
     name,
     value: Number(value),
     color: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#94a3b8'][i % 5]
@@ -94,22 +102,38 @@ export default function Dashboard() {
 
   const finalCategoryData = categoryData.length > 0 ? categoryData : [{ name: 'Awaiting Data', value: 100, color: '#18181b' }];
 
+  const creditScore = (user as any)?.creditScore || 742;
+  const lastEarnings = summary?.totalEarningsOverall || 0;
+  const lastExpenses = summary?.totalExpensesOverall || 0;
+  const expenseRatio = lastEarnings > 0 ? Math.round((lastExpenses / lastEarnings) * 100) : 0;
+  const todayEarnings = todayStats?.totalEarnings || 0;
+  const txCount = todayStats?.transactionCount || 0;
+
+  // Dynamic WHY explanations for credit score
+  const creditReason = txCount >= 3
+    ? "Consistent daily sales boosted this"
+    : todayEarnings > 0
+    ? "Today's income improved your standing"
+    : "Make sales today to grow your score";
+
   const stats = [
     { 
       label: "Today's Earnings", 
-      value: `₹${(todayStats?.totalEarnings || 0).toLocaleString()}`, 
+      value: `₹${todayEarnings.toLocaleString()}`, 
       trend: "+100%", 
       icon: IndianRupee, 
       color: "text-emerald-500",
-      bgColor: "bg-emerald-500/10"
+      bgColor: "bg-emerald-500/10",
+      why: todayEarnings > 0 ? `From ${txCount} sale${txCount !== 1 ? 's' : ''} logged today` : "No sales logged yet today"
     },
     { 
       label: "Orders Today", 
-      value: (todayStats?.transactionCount || 0).toString(), 
+      value: txCount.toString(), 
       trend: "Fresh", 
       icon: ShoppingBag, 
       color: "text-indigo-500",
-      bgColor: "bg-indigo-500/10"
+      bgColor: "bg-indigo-500/10",
+      why: txCount > 0 ? "Each order builds your credit history" : "Log your first sale to start"
     },
     { 
       label: "Unique Customers", 
@@ -117,21 +141,24 @@ export default function Dashboard() {
       trend: "New", 
       icon: Users, 
       color: "text-purple-500",
-      bgColor: "bg-purple-500/10"
+      bgColor: "bg-purple-500/10",
+      why: "Repeat customers increase your loan limit"
     },
     { 
       label: "Credit Score", 
-      value: (user as any)?.creditScore || 742, 
-      trend: "+0 pts", 
+      value: creditScore, 
+      trend: txCount > 0 ? `+${txCount * 2} pts today` : "No change", 
       icon: ShieldCheck, 
       color: "text-emerald-500",
-      bgColor: "bg-emerald-500/10"
+      bgColor: "bg-emerald-500/10",
+      why: creditReason
     },
   ];
 
   const quickActions = [
     { label: "Scan", icon: QrCode, href: "/payments/scan", color: "bg-rose-500/10 text-rose-500" },
     { label: "Asset", icon: PlusCircle, href: "/payments", color: "bg-emerald-500/10 text-emerald-500" },
+    { label: "Balance", icon: Wallet, href: "/balance", color: "bg-amber-500/10 text-amber-400" },
     { label: "History", icon: History, href: "/transactions", color: "bg-zinc-800 text-zinc-400" },
     { label: "Loans", icon: Coins, href: "/credit", color: "bg-indigo-500/10 text-indigo-500" },
   ];
@@ -180,19 +207,56 @@ export default function Dashboard() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           {stats.map((stat, i) => (
-            <Card key={i} className="premium-card p-8 bg-zinc-900 border border-white/5 relative group hover:border-emerald-500/20 transition-all">
+            <Card key={i} className="premium-card p-8 bg-zinc-900 border border-white/5 relative group hover:border-emerald-500/20 transition-all flex flex-col justify-between">
               <div className="flex justify-between items-start mb-6">
                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{stat.label}</p>
                 <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", stat.bgColor)}>
                   <stat.icon className={cn("w-5 h-5", stat.color)} />
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <h2 className="text-3xl font-black text-white tabular-nums tracking-tighter">{stat.value}</h2>
-                <span className={cn("text-[9px] font-black uppercase tracking-widest", stat.color)}>{stat.trend} verified pulse</span>
+                <span className={cn("text-[9px] font-black uppercase tracking-widest", stat.color)}>{stat.trend}</span>
               </div>
+              {'why' in stat && (
+                <p className="mt-5 text-[9px] font-bold text-zinc-600 leading-relaxed border-l-2 border-zinc-800 pl-3 italic">
+                  {stat.why}
+                </p>
+              )}
             </Card>
           ))}
+        </div>
+
+        {/* 2. PRIMARY OPERATIONAL ACTIONS */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
+           <Link href="/payments?mode=credit">
+              <Button className="w-full h-[120px] rounded-[2.5rem] bg-emerald-500 text-black font-black text-lg gap-5 shadow-2xl active:scale-95 transition-all group overflow-hidden relative">
+                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                 <ArrowDownLeft className="w-9 h-9 stroke-[3px]" />
+                 Receive
+              </Button>
+           </Link>
+           <Link href="/payments/scan">
+              <Button className="w-full h-[120px] rounded-[2.5rem] bg-indigo-500 text-white font-black text-lg gap-5 shadow-2xl active:scale-95 transition-all group overflow-hidden relative">
+                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                 <QrCode className="w-9 h-9 stroke-[3px]" />
+                 Scan &amp; Pay
+              </Button>
+           </Link>
+           <Link href="/balance">
+              <Button className="w-full h-[120px] rounded-[2.5rem] bg-amber-500 text-black font-black text-lg gap-5 shadow-2xl active:scale-95 transition-all group overflow-hidden relative">
+                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                 <Wallet className="w-9 h-9 stroke-[3px]" />
+                 Check Balance
+              </Button>
+           </Link>
+           <Link href="/payments?mode=debit">
+              <Button className="w-full h-[120px] rounded-[2.5rem] bg-rose-500 text-white font-black text-lg gap-5 shadow-2xl active:scale-95 transition-all group overflow-hidden relative">
+                 <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                 <PlusCircle className="w-9 h-9 stroke-[3px]" />
+                 Add Expense
+              </Button>
+           </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
@@ -249,29 +313,63 @@ export default function Dashboard() {
                <h3 className="text-base lg:text-lg font-black text-white mb-10">Inventory Velocity</h3>
                <div className="h-[220px] w-full flex items-center justify-center relative">
                   <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={finalCategoryData} cx="50%" cy="50%" innerRadius={75} outerRadius={100} paddingAngle={10} dataKey="value" stroke="none">
-                        {finalCategoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
+                     <PieChart>
+                       <Pie
+                         data={finalCategoryData}
+                         cx="50%"
+                         cy="50%"
+                         innerRadius={65}
+                         outerRadius={85}
+                         paddingAngle={8}
+                         dataKey="value"
+                         stroke="none"
+                         labelLine={false}
+                         label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                         onMouseEnter={(_, index) => setActiveIndex(index)}
+                         onMouseLeave={() => setActiveIndex(null)}
+                       >
+                         {finalCategoryData.map((entry, index) => (
+                           <Cell
+                             key={`cell-${index}`}
+                             fill={entry.color}
+                             style={{ opacity: activeIndex === null || activeIndex === index ? 1 : 0.3, transition: "opacity 0.3s" }}
+                           />
+                         ))}
+                       </Pie>
+                     </PieChart>
+                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                     <span className="text-3xl font-black text-white tracking-tighter">{categoryData.length > 0 ? "100%" : "0%"}</span>
+                     <span className="text-3xl font-black text-white tracking-tighter">
+                        {activeIndex !== null ? (() => {
+                          const total = finalCategoryData.reduce((s, d) => s + d.value, 0);
+                          return `${Math.round((finalCategoryData[activeIndex].value / total) * 100)}%`;
+                        })() : (categoryData.length > 0 ? "100%" : "0%")}
+                      </span>
                   </div>
                </div>
-               <div className="mt-12 space-y-5">
-                  {categoryData.length > 0 ? categoryData.map((cat, i) => (
-                    <div key={i} className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                      <div className="flex items-center gap-4">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
-                        <span className="text-zinc-500">{cat.name}</span>
-                      </div>
-                      <span className="text-white tabular-nums">{cat.value} Units</span>
-                    </div>
-                  )) : <p className="text-center text-[10px] font-black text-zinc-700 uppercase tracking-widest py-4 italic">No categorical data captured</p>}
-               </div>
+                <div className="mt-12 space-y-5">
+                   {categoryData.length > 0 ? (() => {
+                      const totalVelocity = categoryData.reduce((acc, curr) => acc + curr.value, 0);
+                      return categoryData.map((cat, i) => {
+                        const percentage = totalVelocity > 0 ? Math.round((cat.value / totalVelocity) * 100) : 0;
+                        return (
+                          <div key={i} className={cn(
+                            "flex justify-between items-center text-[10px] font-black uppercase tracking-widest transition-all",
+                            activeIndex === i ? "translate-x-2 opacity-100" : "opacity-40"
+                          )}>
+                            <div className="flex items-center gap-4">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                              <span className={cn("transition-colors", activeIndex === i ? "text-white" : "text-zinc-500")}>{cat.name}</span>
+                            </div>
+                            <div className="flex items-baseline gap-3">
+                              <span className="text-white tabular-nums">{cat.value} Units</span>
+                              <span className="text-[8px] text-zinc-700 font-bold">{percentage}%</span>
+                            </div>
+                          </div>
+                        );
+                      });
+                   })() : <p className="text-center text-[10px] font-black text-zinc-700 uppercase tracking-widest py-4 italic">No categorical data captured</p>}
+                </div>
             </Card>
 
             <section className="bg-emerald-500/5 border border-emerald-500/10 rounded-[2.5rem] p-10 lg:p-12 relative group overflow-hidden">
@@ -325,9 +423,11 @@ export default function Dashboard() {
                           Open Scanner
                        </Link>
                     </Button>
-                    <Button variant="outline" className="h-18 px-10 rounded-[1.75rem] border-white/5 bg-zinc-900/50 text-white font-black text-sm uppercase tracking-widest gap-4 hover:bg-zinc-800 transition-all">
-                       <PlusCircle className="w-5 h-5" />
-                       Manual Entry
+                    <Button asChild variant="outline" className="h-18 px-10 rounded-[1.75rem] border-white/5 bg-zinc-900/50 text-white font-black text-sm uppercase tracking-widest gap-4 hover:bg-zinc-800 transition-all w-full">
+                       <Link href="/payments?mode=credit">
+                          <PlusCircle className="w-5 h-5" />
+                          Manual Entry
+                       </Link>
                     </Button>
                  </div>
 

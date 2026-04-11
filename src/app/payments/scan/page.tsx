@@ -2,7 +2,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Zap, ShieldCheck, X, RefreshCw, AlertCircle, ArrowRight, Wallet } from "lucide-react";
+import { ChevronLeft, Zap, ShieldCheck, X, RefreshCw, AlertCircle, ArrowRight, Wallet, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -142,14 +142,22 @@ export default function ScanPayPage() {
                </div>
             </div>
          ) : (
-            <div className="flex flex-col items-center gap-6">
-               <div className="px-8 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                  <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[4px]">Scan Any UPI QR Code</span>
-               </div>
-               <p className="text-[10px] text-zinc-600 font-black uppercase tracking-[3px] text-center max-w-[280px] leading-relaxed opacity-60">
-                 HDFC / ICICI / AXIS Gateway Supported
-               </p>
-            </div>
+                <div className="flex flex-col items-center gap-8">
+                   <div className="px-8 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                      <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[4px]">Scan Any UPI QR Code</span>
+                   </div>
+                   
+                   <Link href="/payments?mode=credit" className="w-full">
+                      <Button variant="outline" className="w-full h-16 rounded-2xl border-white/10 bg-black/40 text-white font-black text-[10px] uppercase tracking-[4px] gap-4 backdrop-blur-xl">
+                         <PlusCircle className="w-4 h-4" />
+                         Enter Details Manually
+                      </Button>
+                   </Link>
+
+                   <p className="text-[10px] text-zinc-600 font-black uppercase tracking-[3px] text-center max-w-[280px] leading-relaxed opacity-60">
+                     HDFC / ICICI / AXIS Gateway Supported
+                   </p>
+                </div>
          )}
       </div>
     </div>
