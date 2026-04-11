@@ -4,33 +4,27 @@
 
 @layer base {
   :root {
-    /* Primary: Deep Indigo / Navy Blue (#191A40) */
-    --background: 220 15% 97%;
-    --foreground: 238 44% 17%;
+    /* Updated to a more vibrant FinTech Blue theme */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 238 44% 17%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 238 44% 17%;
-    --primary: 238 44% 17%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
-    /* Secondary: Emerald Green (#1EA366) */
-    --secondary: 153 69% 38%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 210 20% 90%;
-    --muted-foreground: 238 20% 45%;
-    --accent: 153 69% 38%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 221 83% 53%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 238 44% 17%;
-    --radius: 1rem;
-    --chart-1: 238 44% 17%;
-    --chart-2: 153 69% 38%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 1.5rem;
   }
 }
 
@@ -44,23 +38,19 @@
 }
 
 .premium-card {
-  @apply bg-white border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl;
+  @apply bg-white border-none shadow-[0_10px_40px_rgba(0,0,0,0.03)] rounded-[2.5rem];
 }
 
-.gradient-cta {
-  background: linear-gradient(135deg, #1EA366 0%, #2ecc71 100%);
-  @apply shadow-[0_4px_14px_0_rgba(30,163,102,0.39)];
-}
-
-.indigo-gradient {
-  background: linear-gradient(135deg, #191A40 0%, #2c2d6e 100%);
+.blue-gradient {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
 }
 
 .glass-morphism {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  @apply bg-white/10 backdrop-blur-xl border border-white/20;
+}
+
+.nav-pill {
+  @apply fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-sm bg-white/90 backdrop-blur-2xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-full py-3 px-6 flex justify-around items-center z-50;
 }
 
 .success-check-animation {
@@ -72,12 +62,10 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  display: none;
 }

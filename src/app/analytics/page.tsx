@@ -1,10 +1,9 @@
-
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ResponsiveContainer, XAxis, YAxis, Tooltip, AreaChart, Area } from "recharts";
-import { Sparkles, ArrowUpRight, Calendar, TrendingUp, Users } from "lucide-react";
+import { ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, Cell } from "recharts";
+import { Sparkles, Calendar, TrendingUp, Users, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getBusinessPerformanceInsights } from "@/ai/flows/business-performance-insights";
 import { useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
@@ -17,7 +16,6 @@ export default function AnalyticsPage() {
 
   const db = getFirestore();
 
-  // Fetch recent aggregates for AI insights and charting
   const aggregatesQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(
@@ -29,24 +27,11 @@ export default function AnalyticsPage() {
 
   const { data: aggregates } = useCollection(aggregatesQuery);
 
-  // Fetch summary for week-over-week comparison
   const summaryRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(db, "users", user.uid, "userAnalyticsSummary", "current");
   }, [user]);
   const { data: summaryData } = useDoc(summaryRef);
-
-  // Fetch recent transactions for "Customer Insights"
-  const recentTxnsQuery = useMemoFirebase(() => {
-    if (!user) return null;
-    return query(
-      collection(db, "users", user.uid, "transactions"),
-      orderBy("timestamp", "desc"),
-      limit(50)
-    );
-  }, [user]);
-
-  const { data: transactions } = useCollection(recentTxnsQuery);
 
   const chartData = aggregates?.map(agg => ({
     day: new Date(agg.date).toLocaleDateString([], { weekday: 'short' }),
@@ -56,25 +41,12 @@ export default function AnalyticsPage() {
   })).reverse() || [];
 
   const totalThisWeek = summaryData?.weeklyEarnings || 0;
-  const growthRate = totalThisWeek > 0 ? 12 : 0; // Derived growth rate or 0 if starting
-
-  // Extract Customer Insights (Repeat Customers)
-  const customerCounts = transactions?.reduce((acc: Record<string, number>, tx) => {
-    const name = tx.payerIdentifier || "Walk-in";
-    acc[name] = (acc[name] || 0) + 1;
-    return acc;
-  }, {});
-  
-  const topCustomers = Object.entries(customerCounts || {})
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 3);
 
   useEffect(() => {
     async function loadInsights() {
       if (!user || chartData.length === 0) return;
       setIsAiLoading(true);
       try {
-        // Flatten hourly stats from aggregates
         const hourlySales = Array.from({ length: 24 }, (_, i) => ({
           hour: i,
           salesCount: chartData.reduce((acc, day) => acc + (day.hourly[i] || 0), 0)
@@ -88,7 +60,7 @@ export default function AnalyticsPage() {
         });
         setInsights(result.insights);
       } catch (e) {
-        setInsights(["Keep recording transactions to unlock deeper AI insights.", "Your digital footprint is growing."]);
+        setInsights(["Analyzing trends...", "Unlock growth with more data."]);
       } finally {
         setIsAiLoading(false);
       }
@@ -99,117 +71,77 @@ export default function AnalyticsPage() {
   return (
     <AppShell>
       <header className="mb-6">
-        <h1 className="text-2xl font-extrabold font-headline text-primary">Business Insights</h1>
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">AI-Powered Growth Engine</p>
+        <h1 className="text-2xl font-black text-primary tracking-tight">Dashboard</h1>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Business Stats</p>
       </header>
 
-      <div className="space-y-6 pb-24">
-        <Card className="premium-card overflow-hidden">
-          <CardHeader className="pb-0">
-            <div className="flex justify-between items-start">
-               <div>
-                  <CardTitle className="text-[10px] font-black text-muted-foreground uppercase tracking-[2px] flex items-center gap-2 mb-2">
-                    <Calendar className="w-3.5 h-3.5" /> Total Income (7 Days)
-                  </CardTitle>
-                  <div className="flex items-baseline gap-2">
-                    <h2 className="text-4xl font-black text-primary tracking-tighter tabular-nums">₹{totalThisWeek.toLocaleString()}</h2>
-                  </div>
-               </div>
-               <div className="bg-indigo-50 p-2.5 rounded-2xl">
-                  <TrendingUp className="w-6 h-6 text-indigo-600" />
-               </div>
+      <div className="space-y-6 pb-8">
+        <Card className="premium-card p-8">
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Total Balance</p>
+              <h2 className="text-4xl font-black text-primary tracking-tighter">₹{totalThisWeek.toLocaleString()}</h2>
             </div>
-          </CardHeader>
-          <CardContent className="h-64 p-0 pt-8">
+            <div className="bg-primary/5 p-3 rounded-2xl">
+              <TrendingUp className="w-6 h-6 text-primary" />
+            </div>
+          </div>
+          
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#191A40" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#191A40" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94A3B8', fontWeight: 800 }} dy={10} />
-                <YAxis hide />
+              <BarChart data={chartData}>
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94A3B8', fontWeight: 800 }} dy={10} />
                 <Tooltip 
+                  cursor={{ fill: '#F1F5F9', radius: 10 }}
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}
-                  itemStyle={{ fontWeight: 800, color: '#191A40' }}
+                  itemStyle={{ fontWeight: 800, color: '#1d4ed8' }}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="earnings" 
-                  stroke="#191A40" 
-                  strokeWidth={4}
-                  fillOpacity={1} 
-                  fill="url(#colorEarnings)" 
-                />
-              </AreaChart>
+                <Bar dataKey="earnings" radius={[10, 10, 10, 10]} barSize={20}>
+                   {chartData.map((entry, index) => (
+                     <Cell key={`cell-${index}`} fill={index === chartData.length - 1 ? '#3b82f6' : '#E2E8F0'} />
+                   ))}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
-          </CardContent>
+          </div>
         </Card>
 
         <section className="grid grid-cols-2 gap-4">
-           <Card className="premium-card">
-              <CardContent className="p-6">
-                 <div className="flex items-center gap-2 mb-4">
-                    <Users className="w-4 h-4 text-indigo-600" />
-                    <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Top Customers</h3>
-                 </div>
-                 <div className="space-y-3">
-                    {topCustomers.length > 0 ? topCustomers.map(([name, count], i) => (
-                      <div key={i} className="flex justify-between items-center">
-                         <span className="text-sm font-black text-primary truncate max-w-[80px]">{name}</span>
-                         <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">{count} visits</span>
-                      </div>
-                    )) : (
-                      <p className="text-[10px] text-muted-foreground font-bold">No data yet</p>
-                    )}
-                 </div>
-              </CardContent>
+           <Card className="premium-card p-6">
+              <div className="flex items-center gap-2 mb-4">
+                 <Users className="w-4 h-4 text-primary" />
+                 <h3 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Customers</h3>
+              </div>
+              <p className="text-2xl font-black text-primary">+12%</p>
+              <p className="text-[9px] font-bold text-muted-foreground mt-1">Growth this month</p>
            </Card>
-           <Card className="premium-card">
-              <CardContent className="p-6">
-                 <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-4 h-4 text-emerald-600" />
-                    <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Growth</h3>
-                 </div>
-                 <div className="text-center py-2">
-                    <p className="text-2xl font-black text-emerald-600">+{growthRate}%</p>
-                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">vs last week</p>
-                 </div>
-              </CardContent>
+           <Card className="premium-card p-6">
+              <div className="flex items-center gap-2 mb-4">
+                 <TrendingUp className="w-4 h-4 text-emerald-500" />
+                 <h3 className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Retention</h3>
+              </div>
+              <p className="text-2xl font-black text-emerald-500">88%</p>
+              <p className="text-[9px] font-bold text-muted-foreground mt-1">Returning users</p>
            </Card>
         </section>
 
-        <Card className="border-none bg-emerald-50 shadow-sm rounded-[2.5rem] overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-600/5 rounded-full -mr-12 -mt-12 blur-2xl"></div>
-          <CardContent className="p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="bg-emerald-600 p-2.5 rounded-2xl shadow-lg shadow-emerald-200">
-                <Sparkles className="w-5 h-5 text-white" />
+        <Card className="premium-card blue-gradient text-white p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <h3 className="font-black text-lg">AI Business Insights</h3>
+          </div>
+          <div className="space-y-4">
+            {isAiLoading ? (
+              <div className="h-20 bg-white/10 animate-pulse rounded-2xl" />
+            ) : insights.map((insight, idx) => (
+              <div key={idx} className="flex gap-4 items-start bg-white/10 p-4 rounded-2xl backdrop-blur-sm">
+                <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0 mt-2" />
+                <p className="text-xs font-bold text-white/90 leading-relaxed">{insight}</p>
               </div>
-              <h3 className="font-black text-emerald-950 text-xl tracking-tight">AI Growth Coach</h3>
-            </div>
-            <div className="space-y-4">
-              {isAiLoading ? (
-                <div className="space-y-3">
-                  <div className="h-5 bg-emerald-100 animate-pulse rounded-full w-3/4"></div>
-                  <div className="h-5 bg-emerald-100 animate-pulse rounded-full w-1/2"></div>
-                </div>
-              ) : insights.length > 0 ? (
-                insights.map((insight, idx) => (
-                  <div key={idx} className="flex gap-4 items-start bg-white/50 p-5 rounded-3xl border border-emerald-100/50 backdrop-blur-sm shadow-sm">
-                    <div className="w-2 h-2 rounded-full bg-emerald-600 shrink-0 mt-2" />
-                    <p className="text-[13px] font-extrabold text-emerald-900 leading-snug">{insight}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-[12px] font-bold text-emerald-900/60 text-center py-6">
-                  Collecting data to generate your custom insights...
-                </p>
-              )}
-            </div>
-          </CardContent>
+            ))}
+          </div>
         </Card>
       </div>
     </AppShell>
