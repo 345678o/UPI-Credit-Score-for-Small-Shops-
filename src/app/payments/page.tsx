@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -68,21 +69,25 @@ export default function PaymentsPage() {
       userId: user.uid,
       totalTransactionsCount: increment(1),
       totalEarningsOverall: increment(amountNum),
-      weeklyEarnings: increment(amountNum), // Simplified: should ideally reset weekly
-      monthlyEarnings: increment(amountNum), // Simplified
+      weeklyEarnings: increment(amountNum),
+      monthlyEarnings: increment(amountNum),
       lastUpdatedAt: serverTimestamp()
     }, { merge: true });
 
-    // 4. Recalculate Credit Score
+    // 4. Update Credit Score and Award Rewards
     try {
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const userData = userSnap.data();
         const currentScore = userData.creditScore || 300;
+        const currentPoints = userData.rewardPoints || 0;
         
         // Improve score based on transaction volume
         const scoreGain = amountNum > 1000 ? 5 : 2;
         const newScore = Math.min(900, currentScore + scoreGain);
+        
+        // Award reward points (1 point per 100 rupees)
+        const pointsAwarded = Math.floor(amountNum / 100);
         
         let newEligible = 10000;
         if (newScore > 750) newEligible = 500000;
@@ -93,6 +98,7 @@ export default function PaymentsPage() {
         updateDocumentNonBlocking(userRef, {
           creditScore: newScore,
           loanEligibleAmount: newEligible,
+          rewardPoints: increment(pointsAwarded),
           lastUpdated: serverTimestamp()
         });
 

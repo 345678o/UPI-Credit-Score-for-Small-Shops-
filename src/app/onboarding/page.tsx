@@ -41,18 +41,18 @@ export default function OnboardingPage() {
     const db = getFirestore();
     const userRef = doc(db, "users", user.uid);
     
-    // Using setDocumentNonBlocking to ensure data is stored in Firestore
     setDocumentNonBlocking(userRef, {
       id: user.uid,
       businessName: businessName || "My Store",
       ownerName: ownerName || "Merchant",
       email: email,
-      phoneNumber: "Not Provided", // email based login
+      phoneNumber: "Not Provided",
       bankAccountNumber: "XXXXXXXXXXXX",
       ifscCode: "IFSC0001234",
       businessType: businessType,
       creditScore: 350,
       loanEligibleAmount: 10000,
+      rewardPoints: 100, // Initial welcome points
       createdAt: serverTimestamp(),
     }, { merge: true });
 

@@ -1,11 +1,11 @@
+
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, ArrowDownLeft, QrCode, ChevronRight, TrendingUp, Sparkles, Bell, ShieldCheck, Plus } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, QrCode, ChevronRight, TrendingUp, Sparkles, Bell, ShieldCheck, Plus, Gift, BarChart3 } from "lucide-react";
 import Link from "next/link";
-import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 import { useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { doc, collection, query, limit, orderBy, getFirestore } from "firebase/firestore";
@@ -58,6 +58,7 @@ export default function Dashboard() {
   }
 
   const weeklyPulse = summaryData?.weeklyEarnings || 0;
+  const rewardPoints = (merchantData as any)?.rewardPoints || 0;
 
   return (
     <AppShell>
@@ -68,11 +69,18 @@ export default function Dashboard() {
           </h1>
           <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">Good Morning</p>
         </div>
-        <Link href="/notifications">
-          <Button variant="outline" size="icon" className="rounded-full h-11 w-11 border-white shadow-sm bg-white">
-            <Bell className="w-5 h-5 text-primary" />
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/analytics">
+            <Button variant="outline" size="icon" className="rounded-full h-11 w-11 border-white shadow-sm bg-white">
+              <BarChart3 className="w-5 h-5 text-primary" />
+            </Button>
+          </Link>
+          <Link href="/notifications">
+            <Button variant="outline" size="icon" className="rounded-full h-11 w-11 border-white shadow-sm bg-white">
+              <Bell className="w-5 h-5 text-primary" />
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <Card className="blue-gradient text-white border-none shadow-2xl mb-8 overflow-hidden relative rounded-[2.5rem]">
@@ -111,6 +119,23 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
+
+      <Link href="/rewards">
+        <Card className="premium-card p-6 mb-8 bg-indigo-50 border border-indigo-100 flex items-center justify-between active:scale-[0.98] transition-all">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100">
+               <Gift className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-0.5">Reward Balance</p>
+              <h3 className="text-xl font-black text-primary">{rewardPoints} pts</h3>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+            Redeem <ChevronRight className="w-3 h-3" />
+          </div>
+        </Card>
+      </Link>
 
       <section className="mb-8">
         <div className="flex justify-between items-center mb-5 px-1">

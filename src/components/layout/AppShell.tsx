@@ -1,14 +1,15 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, IndianRupee, BarChart3, ShieldCheck, User } from "lucide-react";
+import { Home, IndianRupee, Gift, ShieldCheck, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { label: "Home", icon: Home, href: "/" },
   { label: "Payments", icon: IndianRupee, href: "/payments" },
-  { label: "Analytics", icon: BarChart3, href: "/analytics" },
+  { label: "Rewards", icon: Gift, href: "/rewards" },
   { label: "Credit", icon: ShieldCheck, href: "/credit" },
   { label: "Profile", icon: User, href: "/profile" },
 ];
