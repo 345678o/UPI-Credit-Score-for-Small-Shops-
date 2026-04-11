@@ -1,157 +1,30 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * CORE PHILOSOPHY
-     * This ruleset implements a strict User-Ownership model. Access control is primarily 
-     * enforced through the hierarchical path structure, where all user-specific data is 
-     * nested under a unique user document. This ensures clear boundaries and efficient 
-     * authorization checks.
-     *
-     * DATA STRUCTURE
-     * The database is organized under a root /users/{userId} collection. 
-     * All related entities (transactions, aggregates, notifications, etc.) are 
-     * implemented as subcollections of the specific user who owns them.
-     *
-     * KEY SECURITY DECISIONS
-     * 1. Path-Based Authorization: The {userId} wildcard in the path is compared 
-     *    directly against the authenticated request.auth.uid.
-     * 2. Relational Integrity: Critical fields like 'userId' or 'id' are validated 
-     *    on creation and enforced as immutable on update to prevent data orphaned 
-     *    from its owner.
-     * 3. Prototyping Flexibility: While authorization is strictly enforced, 
-     *    the internal shape of documents is not validated to allow for rapid 
-     *    schema iteration.
-     * 4. System Bypass: Note that backend Cloud Functions using the Admin SDK 
-     *    bypass these rules to perform calculations (like credit scoring).
-     */
-
-    // --- Helper Functions ---
-
-    /** @description Checks if the request is from an authenticated user. */
-    function isSignedIn() {
-      return request.auth != null;
+    
+    // 🛡️ CrediPay High-Security Perimeter
+    // Robust, recursive user isolation logic.
+    
+    // This match covers:
+    // 1. /users/{userId} (The main merchant doc)
+    // 2. /users/{userId}/... (All nested subcollections)
+    match /users/{userId}/{allPaths=**} {
+       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    /** @description Checks if the authenticated user's UID matches the provided userId. */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /** @description Verifies ownership and ensures the document exists for state changes. */
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
-
-    /** @description Ensures a relational field matches the owner in the path. */
-    function isRelationalValid(userId, fieldName) {
-      return request.resource.data[fieldName] == userId;
-    }
-
-    /** @description Prevents modification of ownership links during updates. */
-    function isRelationalImmutable(fieldName) {
-      return request.resource.data[fieldName] == resource.data[fieldName];
-    }
-
-    // --- Collection Rules ---
-
-    /**
-     * @description Root collection for merchant profiles. Users can only manage their own profile.
-     * @path /users/{userId}
-     * @allow (create) if auth.uid == "user_123" && data.id == "user_123"
-     * @deny (read) if auth.uid != userId
-     * @principle Enforces self-creation and strict ownership of the root user document.
-     */
+    // Explicit fallback for root user document
     match /users/{userId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && isRelationalValid(userId, 'id');
-      allow update: if isExistingOwner(userId) && isRelationalImmutable('id');
-      allow delete: if isExistingOwner(userId);
-
-      /**
-       * @description Records of financial movement. Hierarchical path ensures private access.
-       * @path /users/{userId}/transactions/{transactionId}
-       * @allow (create) if auth.uid == userId && data.userId == userId
-       * @deny (list) if auth.uid != userId
-       * @principle Path-based authorization for user-specific subcollections.
-       */
-      match /transactions/{transactionId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isRelationalValid(userId, 'userId');
-        allow update: if isExistingOwner(userId) && isRelationalImmutable('userId');
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
-       * @description Precomputed daily business performance stats.
-       * @path /users/{userId}/dailyBusinessAggregates/{dailyAggregateId}
-       * @allow (get) if auth.uid == userId
-       * @deny (update) if data.userId != userId
-       * @principle Ensures analytical data is only accessible to the relevant merchant.
-       */
-      match /dailyBusinessAggregates/{dailyAggregateId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isRelationalValid(userId, 'userId');
-        allow update: if isExistingOwner(userId) && isRelationalImmutable('userId');
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
-       * @description Detailed breakdown of credit score factors and recommendations.
-       * @path /users/{userId}/creditScoreDetails/{creditScoreDetailId}
-       * @allow (list) if auth.uid == userId
-       * @deny (create) if auth.uid != userId
-       * @principle Restricts sensitive financial evaluations to the document owner.
-       */
-      match /creditScoreDetails/{creditScoreDetailId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isRelationalValid(userId, 'userId');
-        allow update: if isExistingOwner(userId) && isRelationalImmutable('userId');
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
-       * @description History and status of loan applications submitted by the merchant.
-       * @path /users/{userId}/loanApplications/{loanApplicationId}
-       * @allow (create) if auth.uid == userId && data.userId == userId
-       * @deny (delete) if auth.uid != userId
-       * @principle Secures loan application data within the user's private tree.
-       */
-      match /loanApplications/{loanApplicationId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isRelationalValid(userId, 'userId');
-        allow update: if isExistingOwner(userId) && isRelationalImmutable('userId');
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
-       * @description Private alerts and notifications for the user.
-       * @path /users/{userId}/notifications/{notificationId}
-       * @allow (update) if auth.uid == userId (e.g., marking as read)
-       * @deny (get) if auth.uid != userId
-       * @principle Ensures notifications are only visible and manageable by the recipient.
-       */
-      match /notifications/{notificationId} {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isRelationalValid(userId, 'userId');
-        allow update: if isExistingOwner(userId) && isRelationalImmutable('userId');
-        allow delete: if isExistingOwner(userId);
-      }
-
-      /**
-       * @description A single, fixed document providing high-level business summaries.
-       * @path /users/{userId}/userAnalyticsSummary/current
-       * @allow (get) if auth.uid == userId
-       * @deny (create) if request.resource.data.userId != userId
-       * @principle Protects the 1:1 summary document using the same ownership pattern.
-       */
-      match /userAnalyticsSummary/current {
-        allow get, list: if isOwner(userId);
-        allow create: if isOwner(userId) && isRelationalValid(userId, 'userId');
-        allow update: if isExistingOwner(userId) && isRelationalImmutable('userId');
-        allow delete: if isExistingOwner(userId);
-      }
+       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Secondary fallback for any collection-group style queries (if used)
+    match /{path=**}/transactions/{document=**} {
+       allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

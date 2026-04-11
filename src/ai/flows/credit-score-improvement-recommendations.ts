@@ -19,6 +19,14 @@ const CreditScoreImprovementRecommendationsInputSchema = z.object({
     .describe(
       'The average monthly transaction volume in currency units.'
     ),
+  netIncome: z
+    .number()
+    .optional()
+    .describe('Total net income (Income - Expenses) for the period.'),
+  expenseStability: z
+    .number()
+    .optional()
+    .describe('A score (0-100) representing the stability of expenses.'),
   paymentConsistency: z
     .number()
     .describe(
@@ -65,10 +73,21 @@ const prompt = ai.definePrompt({
 Analyze the following business financial data:
 - Current Credit Score: {{{currentCreditScore}}}
 - Average Monthly Transaction Volume: {{{transactionVolume}}}
+- Net Income (Income - Expenses): {{{netIncome}}}
+- Expense Stability (0-100): {{{expenseStability}}}
 - Payment Consistency (0-100): {{{paymentConsistency}}}
 - Quarterly Revenue Growth: {{{revenueGrowth}}}%
 
-Provide 3-5 clear and concise recommendations. Each recommendation should have a title and a description explaining how it helps improve the credit score and how the merchant can implement it. Focus on practical steps related to transaction consistency, volume, timely payments, and business growth.
+Provide 3-5 clear and concise recommendations. Each recommendation should have a title and a description explaining how it helps improve the credit score and how the merchant can implement it. 
+
+Focus on:
+- Improving transition from revenue to Profit (Profit Trends).
+- Enhancing transaction consistency.
+- Maintaining steady income flow.
+- Converting more cash sales to digital.
+- Managing expenses to ensure a healthy net income, which is a key driver for larger loans.
+
+The advice should be practical for a small shop owner in India.
 `,
 });
 

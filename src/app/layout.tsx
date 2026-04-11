@@ -20,11 +20,9 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased bg-background min-h-screen flex justify-center">
+      <body className="antialiased bg-background selection:bg-emerald-500/30">
         <FirebaseClientProvider>
-          <div className="w-full max-w-md bg-background min-h-screen shadow-2xl relative overflow-hidden flex flex-col">
-            {children}
-          </div>
+          {children}
           <Toaster />
         </FirebaseClientProvider>
       </body>
