@@ -5,10 +5,12 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Gift, Star, ArrowUpRight, Zap, Coins, ChevronRight } from "lucide-react";
+import { Trophy, Gift, Star, ArrowUpRight, Zap, Coins, ChevronRight, ExternalLink } from "lucide-react";
 import { useUser, useDoc, useMemoFirebase } from "@/firebase";
 import { doc, getFirestore } from "firebase/firestore";
 import { cn } from "@/lib/utils";
+import { getUserReferralInfo } from "@/lib/referral-system";
+import { useState, useEffect } from "react";
 
 export default function RewardsPage() {
   const { user } = useUser();
@@ -20,6 +22,13 @@ export default function RewardsPage() {
   }, [user]);
 
   const { data: userData } = useDoc(userRef);
+  const [referralInfo, setReferralInfo] = useState<any>(null);
+
+  useEffect(() => {
+    if (user) {
+      getUserReferralInfo(user.uid).then(setReferralInfo);
+    }
+  }, [user]);
 
   const points = (userData as any)?.rewardPoints || 0;
   const nextTier = 1000;
@@ -27,7 +36,7 @@ export default function RewardsPage() {
 
   const tasks = [
     { title: "First 5 Sales", progress: 60, reward: "100 pts", icon: Zap, color: "text-orange-500", bg: "bg-orange-50" },
-    { title: "Refer a Friend", progress: 0, reward: "500 pts", icon: Gift, color: "text-indigo-600", bg: "bg-indigo-50" },
+    { title: "Refer a Friend", progress: referralInfo?.referralStats?.successfulReferrals > 0 ? 100 : 0, reward: "500 pts", icon: Gift, color: "text-indigo-600", bg: "bg-indigo-50", action: "link", link: "/referrals" },
     { title: "Weekly Consistency", progress: 85, reward: "250 pts", icon: Star, color: "text-emerald-600", bg: "bg-emerald-50" },
   ];
 
@@ -76,7 +85,16 @@ export default function RewardsPage() {
                     <p className="text-[10px] font-bold text-muted-foreground uppercase">Reward: {task.reward}</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-black text-primary">{task.progress}%</span>
+                    {task.action === "link" ? (
+                      <Button
+                        onClick={() => window.location.href = task.link}
+                        className="text-xs font-black text-primary hover:underline"
+                      >
+                        View
+                      </Button>
+                    ) : (
+                      <span className="text-xs font-black text-primary">{task.progress}%</span>
+                    )}
                   </div>
                 </div>
                 <Progress value={task.progress} className="h-1.5" />

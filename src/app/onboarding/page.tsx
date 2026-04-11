@@ -1,12 +1,16 @@
-
 "use client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { ShieldCheck, IndianRupee, ArrowRight, Store, Mail, Info, User as UserIcon, Briefcase, Zap, Link as LinkIcon, Plus } from "lucide-react";
+import {
+  ShieldCheck, IndianRupee, ArrowRight, Store, Mail,
+  Info, User as UserIcon, Briefcase, Zap, Link as LinkIcon,
+  Plus, CheckCircle2, QrCode, Sparkles, Building2,
+  Lock, ArrowLeft
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAuth, useUser, initiateAnonymousSignIn, setDocumentNonBlocking } from "@/firebase";
+import { useAuth, useUser, initiateAnonymousSignIn, initiateEmailSignIn, setDocumentNonBlocking } from "@/firebase";
 import { doc, getFirestore, serverTimestamp, getDoc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -14,47 +18,80 @@ import { cn } from "@/lib/utils";
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [businessType, setBusinessType] = useState("Kirana");
   const [onboardingType, setOnboardingType] = useState<"new" | "existing" | null>(null);
   const [existingId, setExistingId] = useState("");
-  
-  const { user, isUserLoading } = useUser();
+  const [authError, setAuthError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const { user, isUserLoading, userError } = useUser();
   const auth = useAuth();
   const router = useRouter();
 
-  // Redirect if already onboarded
   useEffect(() => {
     async function checkExisting() {
-        if (!isUserLoading && user) {
-            const db = getFirestore();
-            const snap = await getDoc(doc(db, "users", user.uid));
-            if (snap.exists() && snap.data().businessName) {
-                router.push("/");
-            } else {
-                setStep(3);
-            }
+      if (!isUserLoading && user) {
+        setIsLoading(false);
+        const db = getFirestore();
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists() && snap.data().businessName) {
+          router.push("/");
+        } else {
+          setStep(3);
         }
+      } else if (!isUserLoading && !user) {
+        setIsLoading(false);
+      }
     }
     checkExisting();
   }, [user, isUserLoading, router]);
 
-  const handleSendCode = () => {
-    if (email.includes("@")) {
-      setStep(2);
+  useEffect(() => {
+    if (userError) {
+      setAuthError(userError.message);
+      setIsLoading(false);
+    }
+  }, [userError]);
+
+  const handleEmailSignIn = () => {
+    if (!email || !password) {
+      setAuthError("Please enter both email and password");
+      return;
+    }
+    
+    setIsLoading(true);
+    setAuthError("");
+    
+    try {
+      initiateEmailSignIn(auth, email, password);
+      // Auth state change will be handled by onAuthStateChanged listener
+    } catch (error) {
+      setAuthError("Failed to sign in. Please check your credentials.");
+      setIsLoading(false);
     }
   };
 
-  const handleVerifyCode = () => {
-    initiateAnonymousSignIn(auth);
+  const handleAnonymousSignIn = () => {
+    setIsLoading(true);
+    setAuthError("");
+    
+    try {
+      initiateAnonymousSignIn(auth);
+      // Auth state change will be handled by onAuthStateChanged listener
+    } catch (error) {
+      setAuthError("Failed to start sandbox session.");
+      setIsLoading(false);
+    }
   };
 
   const handleCompleteOnboarding = () => {
     if (!user) return;
     const db = getFirestore();
     const userRef = doc(db, "users", user.uid);
-    
+
     setDocumentNonBlocking(userRef, {
       id: user.uid,
       businessName: businessName || "My Store",
@@ -73,252 +110,191 @@ export default function OnboardingPage() {
     router.push("/");
   };
 
-  const handleLinkAccount = async () => {
-    if (!user || !existingId) return;
-    // Logic to "combine" or link would go here. 
-    // For this prototype, we'll simulate a successful link.
-    const db = getFirestore();
-    const existingRef = doc(db, "users", existingId);
-    const existingSnap = await getDoc(existingRef);
-    
-    if (existingSnap.exists()) {
-        const data = existingSnap.data();
-        setDocumentNonBlocking(doc(db, "users", user.uid), {
-            ...data,
-            id: user.uid, // Maintain new auth UID but copy data
-            linkedFrom: existingId,
-            linkedAt: serverTimestamp()
-        }, {});
-        router.push("/");
-    } else {
-        alert("Business ID not found.");
-    }
-  };
-
   return (
-    <div className="flex flex-col p-10 bg-black min-h-[100dvh] w-full relative overflow-hidden">
-      {/* Background Glows */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full -mr-32 -mt-32 blur-[100px]" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full -ml-32 -mb-32 blur-[100px]" />
+    <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-4 md:p-8 font-sans overflow-hidden relative">
+      {/* Cinematic Background */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.03)_0%,transparent_70%)]" />
+      </div>
 
-      <div className="mt-16 mb-16 relative z-10 flex flex-col items-center">
-        <div className="w-24 h-24 rounded-[2.5rem] bg-emerald-500 flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(34,197,94,0.4)]">
-           <IndianRupee className="w-12 h-12 text-black stroke-[2.5px]" />
+      <div className="w-full max-w-[1100px] grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
+
+        {/* Left Side: Brand & Value Prop */}
+        <div className="hidden lg:flex flex-col space-y-8 animate-in slide-in-from-left-8 duration-700">
+          <div className="inline-flex items-center space-x-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full w-fit backdrop-blur-md">
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            <span className="text-[10px] font-black uppercase tracking-[3px] text-zinc-400">Institutional Grade Ledger</span>
+          </div>
+
+          <div className="space-y-4">
+            <h1 className="text-7xl font-black tracking-tight leading-[0.9]">
+              Powering <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-indigo-500">The Modern Merchant.</span>
+            </h1>
+            <p className="text-lg text-zinc-500 font-medium max-w-md">
+              Secure payments, intelligent credit lines, and real-time business analytics for the next generation of commerce.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6 pt-8">
+            <div className="p-6 bg-white/5 border border-white/5 rounded-[2rem] backdrop-blur-sm">
+              <Zap className="w-6 h-6 text-emerald-500 mb-4" />
+              <h3 className="font-bold text-sm uppercase tracking-wider mb-1">Instant Liquidity</h3>
+              <p className="text-xs text-zinc-600">Access credit lines based on your sales velocity.</p>
+            </div>
+            <div className="p-6 bg-white/5 border border-white/5 rounded-[2rem] backdrop-blur-sm">
+              <Sparkles className="w-6 h-6 text-indigo-400 mb-4" />
+              <h3 className="font-bold text-sm uppercase tracking-wider mb-1">AI Auditing</h3>
+              <p className="text-xs text-zinc-600">Automated ledger reconciliation for peace of mind.</p>
+            </div>
+          </div>
         </div>
-        <h1 className="text-4xl font-black text-white tracking-tighter">CrediPay</h1>
-        <p className="text-emerald-500 text-[10px] font-black uppercase tracking-[4px] mt-2">Financial Trust Engine</p>
-      </div>
 
-      <div className="flex-1 space-y-8 relative z-10 max-w-sm mx-auto w-full">
-        {step === 1 ? (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center">
-              <h2 className="text-2xl font-black text-white mb-2">Access Portal</h2>
-              <p className="text-sm text-zinc-500 font-bold leading-relaxed">
-                Connect your business to the network of digital trust.
-              </p>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="relative">
-                 <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600" />
-                 <Input 
-                   className="h-20 bg-zinc-900/50 border-white/5 focus-visible:ring-emerald-500/30 rounded-[2rem] pl-16 pr-8 text-lg font-black text-white transition-all" 
-                   placeholder="Merchant Email" 
-                   type="email"
-                   value={email}
-                   onChange={(e) => setEmail(e.target.value)}
-                 />
+        {/* Right Side: Auth Card */}
+        <div className="flex justify-center">
+          <div className="w-full max-w-md bg-zinc-900/50 border border-white/10 rounded-[3rem] p-8 md:p-12 backdrop-blur-2xl shadow-2xl relative overflow-hidden group">
+            {/* Glossy Overlay */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-emerald-500 opacity-50" />
+
+            <div className="flex flex-col items-center mb-10">
+              <div className="w-20 h-20 bg-emerald-500 rounded-[1.75rem] flex items-center justify-center mb-6 shadow-2xl shadow-emerald-500/30 group-hover:rotate-6 transition-transform duration-500">
+                <IndianRupee className="w-10 h-10 text-black stroke-[3px]" />
               </div>
-              <Button 
-                className="w-full h-20 rounded-[2.5rem] bg-emerald-500 text-black font-black text-lg gap-4 shadow-xl active:scale-95 disabled:opacity-50 transition-all font-sans"
-                onClick={handleSendCode}
-                disabled={!email.includes("@")}
-              >
-                Log In
-                <ArrowRight className="w-5 h-5 stroke-[3px]" />
-              </Button>
-
-              <div className="relative py-4">
-                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
-                 <div className="relative flex justify-center text-[8px] uppercase font-black tracking-[4px] bg-black px-4 text-zinc-700">Audit Only</div>
-              </div>
-
-              <Button 
-                variant="outline"
-                className="w-full h-20 rounded-[2.5rem] border-zinc-800 text-emerald-500 font-black text-xs gap-4 hover:bg-emerald-500/5 active:scale-95 transition-all uppercase tracking-[3px]"
-                onClick={() => {
-                  initiateAnonymousSignIn(auth);
-                  // The useEffect will catch the user and move to Step 3 or Dashboard
-                }}
-              >
-                <Zap className="w-4 h-4 fill-emerald-500" />
-                Quickstart Demo Hub
-              </Button>
-            </div>
-          </div>
-        ) : step === 2 ? (
-          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="text-center">
-              <h2 className="text-2xl font-black text-white mb-2">Authentication</h2>
-              <p className="text-sm text-zinc-500 font-bold leading-relaxed">
-                Enter the simulation code sent to your email.
-              </p>
+              <h2 className="text-3xl font-black tracking-tighter mb-2">Merchant Access</h2>
+              <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest text-center">Enter the financial infrastructure</p>
             </div>
 
-            <div className="flex justify-between gap-3 px-2">
-               {[1,2,3,4].map(i => (
-                 <input 
-                   key={i} 
-                   className="w-16 h-20 bg-zinc-900/50 border border-white/5 rounded-[1.5rem] text-center text-3xl font-black text-emerald-500 focus:border-emerald-500 focus:bg-zinc-900 outline-none transition-all tabular-nums" 
-                   maxLength={1}
-                   placeholder="•"
-                 />
-               ))}
-            </div>
-
-            <Button 
-              className="w-full h-20 rounded-[2.5rem] bg-emerald-500 text-black font-black text-lg shadow-xl active:scale-95 transition-all"
-              onClick={handleVerifyCode}
-            >
-              Verify
-            </Button>
-            
-            <div className="flex items-center gap-3 bg-zinc-900 p-6 rounded-[2rem] border border-white/5">
-              <Info className="w-5 h-5 text-emerald-500 shrink-0" />
-              <p className="text-[10px] font-bold text-zinc-400 leading-snug">
-                SIMULATION: Any code will work in the current testing environment.
-              </p>
-            </div>
-          </div>
-        ) : onboardingType === null ? (
-            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="text-center">
-                    <h2 className="text-2xl font-black text-white mb-2">Setup Preference</h2>
-                    <p className="text-sm text-zinc-500 font-bold">How would you like to build your profile?</p>
-                </div>
-                
-                <div className="space-y-4">
-                    <button 
-                        onClick={() => setOnboardingType("new")}
-                        className="w-full p-8 rounded-[2.5rem] bg-zinc-900/50 border border-white/5 hover:border-emerald-500/30 text-left transition-all group flex items-center gap-6"
-                    >
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500 transition-all">
-                            <Plus className="w-6 h-6 text-emerald-500 group-hover:text-black" />
-                        </div>
-                        <div>
-                            <h3 className="font-black text-white">Create New Business</h3>
-                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Start from zero</p>
-                        </div>
-                    </button>
-
-                    <button 
-                        onClick={() => setOnboardingType("existing")}
-                        className="w-full p-8 rounded-[2.5rem] bg-zinc-900/50 border border-white/5 hover:border-emerald-500/30 text-left transition-all group flex items-center gap-6"
-                    >
-                        <div className="w-14 h-14 rounded-2xl bg-zinc-800 flex items-center justify-center group-hover:bg-emerald-500 transition-all">
-                            <LinkIcon className="w-6 h-6 text-zinc-500 group-hover:text-black" />
-                        </div>
-                        <div>
-                            <h3 className="font-black text-white">Connect To Existing</h3>
-                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Link with Business ID</p>
-                        </div>
-                    </button>
-                </div>
-            </div>
-        ) : onboardingType === "new" ? (
-           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="text-center">
-               <h2 className="text-2xl font-black text-white mb-2">New Store</h2>
-               <p className="text-sm text-zinc-500 font-bold leading-relaxed">
-                 Configure your primary business identity.
-               </p>
-             </div>
-
-             <div className="space-y-4">
-                <div className="relative">
-                   <UserIcon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600" />
-                   <Input 
-                    className="h-20 bg-zinc-900/50 border-white/5 rounded-[2rem] pl-16 font-black text-white" 
-                    placeholder="Owner Name" 
-                    value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
-                   />
-                </div>
-                <div className="relative">
-                   <Store className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600" />
-                   <Input 
-                    className="h-20 bg-zinc-900/50 border-white/5 rounded-[2rem] pl-16 font-black text-white" 
-                    placeholder="Business Name" 
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                   />
-                </div>
-                <div className="relative">
-                   <Briefcase className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600 z-10" />
-                   <Select value={businessType} onValueChange={setBusinessType}>
-                     <SelectTrigger className="h-20 bg-zinc-900/50 border-white/5 rounded-[2rem] pl-16 font-black text-white text-left">
-                       <SelectValue placeholder="Category" />
-                     </SelectTrigger>
-                     <SelectContent className="rounded-[1.5rem] font-black bg-zinc-900 border-white/10 text-white">
-                       <SelectItem value="Kirana">General Store</SelectItem>
-                       <SelectItem value="Restaurant">Restaurant</SelectItem>
-                       <SelectItem value="Salon">Salon / Spa</SelectItem>
-                       <SelectItem value="Electronics">Electronics</SelectItem>
-                       <SelectItem value="Pharmacy">Pharmacy</SelectItem>
-                     </SelectContent>
-                   </Select>
-                </div>
-             </div>
-
-             <Button 
-               className="w-full h-20 rounded-[2.5rem] bg-emerald-500 text-black font-black text-lg shadow-xl active:scale-95 transition-all disabled:opacity-50"
-               onClick={handleCompleteOnboarding}
-               disabled={!businessName || !ownerName}
-             >
-               Initialize Store
-             </Button>
-
-             <button onClick={() => setOnboardingType(null)} className="w-full text-center text-[10px] font-black text-zinc-500 uppercase tracking-[2px]">
-                Back to Options
-             </button>
-           </div>
-        ) : (
-            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="text-center">
-                    <h2 className="text-2xl font-black text-white mb-2">Connect Profile</h2>
-                    <p className="text-sm text-zinc-500 font-bold">Sync your multi-store identity.</p>
-                </div>
-                
-                <div className="space-y-4">
-                    <div className="relative">
-                        <Zap className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500" />
-                        <Input 
-                            className="h-20 bg-zinc-900/50 border-white/5 rounded-[2rem] pl-16 font-black text-white uppercase" 
-                            placeholder="EXISTING BUSINESS ID" 
-                            value={existingId}
-                            onChange={(e) => setExistingId(e.target.value)}
-                        />
+            <div className="space-y-6">
+              {step === 1 && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  {authError && (
+                    <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-sm font-bold text-center">
+                      {authError}
                     </div>
-                    <Button 
-                        className="w-full h-20 rounded-[2.5rem] bg-emerald-500 text-black font-black text-lg shadow-xl active:scale-95 transition-all disabled:opacity-50"
-                        onClick={handleLinkAccount}
-                        disabled={!existingId}
-                    >
-                        Link Account
-                    </Button>
+                  )}
+                  
+                  <div className="relative group/input">
+                    <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600 group-focus-within/input:text-emerald-500 transition-colors" />
+                    <Input
+                      className="h-18 bg-black/40 border-white/10 rounded-[1.5rem] pl-16 text-lg font-bold text-white transition-all focus:border-emerald-500/50"
+                      placeholder="business@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      type="email"
+                    />
+                  </div>
+
+                  <div className="relative group/input">
+                    <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600 group-focus-within/input:text-emerald-500 transition-colors" />
+                    <Input
+                      className="h-18 bg-black/40 border-white/10 rounded-[1.5rem] pl-16 text-lg font-bold text-white transition-all focus:border-emerald-500/50"
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      type="password"
+                    />
+                  </div>
+
+                  <Button
+                    className="w-full h-18 rounded-[1.5rem] bg-emerald-500 text-black font-black text-lg gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-emerald-500/20"
+                    disabled={!email.includes("@") || !password || isLoading}
+                    onClick={handleEmailSignIn}
+                  >
+                    {isLoading ? "Signing In..." : "Sign In"}
+                    <ArrowRight className="w-5 h-5 stroke-[3px]" />
+                  </Button>
+
+                  <div className="flex items-center justify-center space-x-4 py-2">
+                    <div className="h-[1px] flex-1 bg-white/5" />
+                    <span className="text-[10px] font-black text-zinc-700 uppercase tracking-widest">Or Quick Access</span>
+                    <div className="h-[1px] flex-1 bg-white/5" />
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    className="w-full h-18 rounded-[1.5rem] border border-white/5 hover:bg-white/5 text-zinc-400 font-black text-xs uppercase tracking-[2px] transition-all"
+                    disabled={isLoading}
+                    onClick={handleAnonymousSignIn}
+                  >
+                    <Zap className="w-4 h-4 fill-emerald-500 mr-2" />
+                    Launch Sandbox Terminal
+                  </Button>
                 </div>
-                <button onClick={() => setOnboardingType(null)} className="w-full text-center text-[10px] font-black text-zinc-500 uppercase tracking-[2px]">
-                    Back to Options
-                </button>
+              )}
+
+              {step === 3 && (
+                <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+                  <div className="text-center mb-8">
+                    <h2 className="text-2xl font-black tracking-tight">Profile Setup</h2>
+                    <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-2">Initialize your business data</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <UserIcon className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600" />
+                      <Input
+                        className="h-16 bg-black/40 border-white/10 rounded-[1.25rem] pl-16 text-sm font-bold"
+                        placeholder="Owner Name"
+                        value={ownerName}
+                        onChange={(e) => setOwnerName(e.target.value)}
+                      />
+                    </div>
+                    <div className="relative">
+                      <Store className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600" />
+                      <Input
+                        className="h-16 bg-black/40 border-white/10 rounded-[1.25rem] pl-16 text-sm font-bold"
+                        placeholder="Business Name"
+                        value={businessName}
+                        onChange={(e) => setBusinessName(e.target.value)}
+                      />
+                    </div>
+                    <div className="relative">
+                      <Briefcase className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-600 z-10" />
+                      <Select value={businessType} onValueChange={setBusinessType}>
+                        <SelectTrigger className="h-16 bg-black/40 border-white/10 rounded-[1.25rem] pl-16 font-bold text-zinc-400">
+                          <SelectValue placeholder="Industry" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-900 border-white/10 text-white rounded-[1.25rem]">
+                          <SelectItem value="Kirana">General Store</SelectItem>
+                          <SelectItem value="Restaurant">Restaurant</SelectItem>
+                          <SelectItem value="Electronics">Electronics</SelectItem>
+                          <SelectItem value="Pharmacy">Pharmacy</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <Button
+                    className="w-full h-18 rounded-[1.5rem] bg-emerald-500 text-black font-black text-lg mt-4 shadow-2xl active:scale-95 transition-all"
+                    onClick={handleCompleteOnboarding}
+                    disabled={!businessName || !ownerName}
+                  >
+                    Confirm & Start
+                  </Button>
+                </div>
+              )}
             </div>
-        )}
+
+            <div className="mt-12 flex flex-col items-center space-y-4">
+              <div className="flex items-center space-x-2 text-zinc-600">
+                <Lock className="w-3 h-3" />
+                <span className="text-[9px] font-black uppercase tracking-[2px]">AES-256 Encrypted Traffic</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="mt-auto py-12 flex items-center justify-center gap-4 text-[10px] font-black text-zinc-700 uppercase tracking-[5px]">
-        <ShieldCheck className="w-5 h-5" />
-        Verified Protocol
-      </div>
+      {/* Footer Details */}
+      <footer className="mt-12 opacity-30 flex items-center space-x-6 text-[10px] font-black uppercase tracking-[3px] text-zinc-400 relative z-10">
+        <span>Public Beta 1.0</span>
+        <div className="w-1 h-1 bg-zinc-700 rounded-full" />
+        <span>Hub Node Active</span>
+        <div className="w-1 h-1 bg-zinc-700 rounded-full" />
+        <span>PCI Compliant</span>
+      </footer>
     </div>
   );
 }

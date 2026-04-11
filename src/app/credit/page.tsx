@@ -193,7 +193,14 @@ export default function CreditPage() {
         </div>
 
         <section className="space-y-8">
-           <h3 className="text-2xl font-black text-white">Available Loan Offers</h3>
+           <div className="flex items-center justify-between">
+             <h3 className="text-2xl font-black text-white">Available Loan Offers</h3>
+             <Link href="/credit/marketplace">
+               <Button variant="outline" className="border-white/10 bg-zinc-900/50 text-white hover:bg-zinc-800">
+                 Explore Marketplace <ChevronRight className="w-4 h-4 ml-2" />
+               </Button>
+             </Link>
+           </div>
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
               {loanOffers.map((offer, i) => (
                 <Card key={i} className={cn("premium-card p-8 lg:p-10 border transition-all hover:scale-[1.02] flex flex-col", offer.primary ? "bg-indigo-600 border-indigo-500/50 text-white shadow-2xl shadow-indigo-600/20" : "bg-zinc-900 border-white/5 text-zinc-400")}>

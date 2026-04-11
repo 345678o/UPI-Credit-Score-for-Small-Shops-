@@ -48,12 +48,11 @@ export default function BankAccountPage() {
     if (!userRef) return;
     setIsVerifying(true);
     
-    // 💳 Resilient Bank Linkage (Create if missing)
     setTimeout(() => {
-      setDocumentNonBlocking(userRef, {
+      updateDocumentNonBlocking(userRef, {
         ...formData,
         isBankVerified: true
-      }, { merge: true });
+      });
       setIsVerifying(false);
       toast({
         title: "Liquidity Node Connected",

@@ -17,6 +17,19 @@ service cloud.firestore {
        allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
+    // Referral system collections
+    match /referralCodes/{docId} {
+       allow read, write: if request.auth != null && resource.data.referrerId == request.auth.uid;
+    }
+    
+    match /referralLinks/{docId} {
+       allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    match /referralRewards/{docId} {
+       allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
     // Secondary fallback for any collection-group style queries (if used)
     match /{path=**}/transactions/{document=**} {
        allow read: if request.auth != null && resource.data.userId == request.auth.uid;
