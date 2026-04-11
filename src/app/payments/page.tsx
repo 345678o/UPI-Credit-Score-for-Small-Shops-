@@ -7,15 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IndianRupee, CheckCircle2, History as HistoryIcon, TrendingDown, ChevronRight, ArrowLeft } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { cn } from "@/lib/utils";
-import { useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase";
-import { collection, query, orderBy, limit, getFirestore, serverTimestamp, doc, getDoc, increment } from "firebase/firestore";
+import { useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy, limit, getFirestore } from "firebase/firestore";
 import { toast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { recordBusinessTransaction } from "@/lib/fintech-backend";
 
-export default function PaymentsPage() {
+function PaymentsContent() {
   const { user } = useUser();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -77,7 +77,7 @@ export default function PaymentsPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <header className="mb-10 p-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
            <button onClick={() => router.back()} className="w-12 h-12 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-center transition-all active:scale-90">
@@ -204,7 +204,7 @@ export default function PaymentsPage() {
 
         {showSuccess && (
           <div className="fixed inset-0 z-[100] bg-zinc-950 flex flex-col items-center justify-center p-12 animate-in fade-in zoom-in duration-600">
-             <div className="w-36 h-36 rounded-2xl flex items-center justify-center mb-12 bg-rose-500/10 success-check-animation border border-rose-500/20 relative">
+             <div className="w-36 h-36 rounded-2xl flex items-center justify-center mb-12 bg-rose-500/10 border border-rose-500/20 relative">
                 <CheckCircle2 className="w-20 h-20 text-rose-500 stroke-[3px]" />
                 <div className="absolute inset-0 bg-rose-500/5 blur-3xl animate-pulse" />
              </div>
@@ -225,19 +225,29 @@ export default function PaymentsPage() {
              </Card>
              
              <Button 
-               className="mt-16 w-full h-20 rounded-[2.5rem] bg-zinc-900 text-white font-black text-lg border border-white/10 active:scale-95 transition-all shadow-3xl" 
-               onClick={() => {
-                 setShowSuccess(false);
-                 setAmount("");
-                 setPayer("");
-                 setDescription("");
-               }}
-             >
-               Return To Vault
-             </Button>
+                className="mt-16 w-full h-20 rounded-[2.5rem] bg-zinc-900 text-white font-black text-lg border border-white/10 active:scale-95 transition-all shadow-3xl" 
+                onClick={() => {
+                  setShowSuccess(false);
+                  setAmount("");
+                  setPayer("");
+                  setDescription("");
+                }}
+              >
+                Return To Vault
+              </Button>
           </div>
         )}
       </div>
+    </>
+  );
+}
+
+export default function PaymentsPage() {
+  return (
+    <AppShell>
+      <Suspense fallback={<div className="flex items-center justify-center h-screen text-zinc-500 font-black uppercase tracking-widest animate-pulse">Initializing Vault...</div>}>
+        <PaymentsContent />
+      </Suspense>
     </AppShell>
   );
 }
