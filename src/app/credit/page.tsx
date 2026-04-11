@@ -5,19 +5,30 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, Info, TrendingUp, History, Sparkles, ChevronRight, IndianRupee, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
-import { creditScoreImprovementRecommendations, type CreditScoreImprovementRecommendationsOutput } from "@/ai/flows/credit-score-improvement-recommendations";
+import { creditScoreImprovementRecommendations } from "@/ai/flows/credit-score-improvement-recommendations";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useUser, useDoc, useMemoFirebase } from "@/firebase";
+import { doc, getFirestore } from "firebase/firestore";
 
 export default function CreditPage() {
+  const { user } = useUser();
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const userRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(getFirestore(), "users", user.uid);
+  }, [user]);
+
+  const { data: merchantData } = useDoc(userRef);
+
   useEffect(() => {
     async function loadRecs() {
+      if (!merchantData) return;
       try {
         const result = await creditScoreImprovementRecommendations({
-          currentCreditScore: 745,
+          currentCreditScore: merchantData.creditScore || 350,
           transactionVolume: 125000,
           paymentConsistency: 95,
           revenueGrowth: 15,
@@ -33,13 +44,15 @@ export default function CreditPage() {
       }
     }
     loadRecs();
-  }, []);
+  }, [merchantData]);
+
+  const score = merchantData?.creditScore || 350;
 
   return (
     <AppShell>
       <header className="mb-8">
         <h1 className="text-2xl font-extrabold font-headline text-primary">Credit Dashboard</h1>
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Status: High Eligibility</p>
+        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Status: {score > 600 ? 'High Eligibility' : 'Developing Profile'}</p>
       </header>
 
       <div className="space-y-6 pb-8">
@@ -66,14 +79,16 @@ export default function CreditPage() {
                     stroke="#1EA366"
                     strokeWidth="14"
                     strokeDasharray={603}
-                    strokeDashoffset={603 - (603 * 745 / 900)}
+                    strokeDashoffset={603 - (603 * score / 900)}
                     strokeLinecap="round"
                     className="transition-all duration-1000 ease-out"
                   />
                </svg>
                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-6xl font-extrabold tracking-tighter tabular-nums">745</span>
-                  <span className="text-emerald-400 font-black text-xs uppercase tracking-[2px] mt-1">Excellent</span>
+                  <span className="text-6xl font-extrabold tracking-tighter tabular-nums">{score}</span>
+                  <span className="text-emerald-400 font-black text-xs uppercase tracking-[2px] mt-1">
+                    {score > 700 ? "Excellent" : score > 500 ? "Good" : "Average"}
+                  </span>
                </div>
             </div>
             
@@ -118,11 +133,13 @@ export default function CreditPage() {
                 <div className="flex justify-between items-end mb-6">
                    <div>
                       <p className="text-muted-foreground text-[10px] font-extrabold uppercase mb-1">Eligible Amount</p>
-                      <p className="text-4xl font-extrabold text-primary tracking-tighter tabular-nums">₹2,50,000</p>
+                      <p className="text-4xl font-extrabold text-primary tracking-tighter tabular-nums">
+                        ₹{(merchantData?.loanEligibleAmount || 10000).toLocaleString()}
+                      </p>
                    </div>
                    <div className="text-right">
                       <p className="text-muted-foreground text-[10px] font-extrabold uppercase mb-1">Low EMI from</p>
-                      <p className="text-xl font-black text-primary tabular-nums">₹8,450<span className="text-xs font-bold text-muted-foreground">/mo</span></p>
+                      <p className="text-xl font-black text-primary tabular-nums">₹{Math.round((merchantData?.loanEligibleAmount || 10000) * 0.08)}<span className="text-xs font-bold text-muted-foreground">/mo</span></p>
                    </div>
                 </div>
                 <Button className="w-full h-16 rounded-2xl indigo-gradient text-white font-black text-lg shadow-xl uppercase tracking-widest active:scale-95 transition-all" asChild>

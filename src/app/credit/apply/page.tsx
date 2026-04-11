@@ -4,17 +4,55 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { ChevronLeft, Info, CheckCircle2, Calendar, IndianRupee } from "lucide-react";
+import { ChevronLeft, Info, CheckCircle2, Calendar } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useUser, addDocumentNonBlocking } from "@/firebase";
+import { collection, getFirestore, serverTimestamp } from "firebase/firestore";
 
 export default function LoanApplyPage() {
+  const { user } = useUser();
   const [amount, setAmount] = useState([50000]);
   const [tenure, setTenure] = useState(12);
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const emi = Math.round((amount[0] * 1.12) / tenure);
+
+  const handleApply = async () => {
+    if (!user) return;
+    setIsSubmitting(true);
+
+    const db = getFirestore();
+    const loanRef = collection(db, "users", user.uid, "loanApplications");
+
+    addDocumentNonBlocking(loanRef, {
+      userId: user.uid,
+      requestedAmount: amount[0],
+      approvedAmount: amount[0],
+      status: "pending",
+      emiAmount: emi,
+      durationMonths: tenure,
+      appliedAt: serverTimestamp(),
+      outstandingAmount: amount[0]
+    });
+
+    // Create a notification for the application
+    const notifRef = collection(db, "users", user.uid, "notifications");
+    addDocumentNonBlocking(notifRef, {
+      userId: user.uid,
+      type: "loan_approved",
+      message: `Your loan application for ₹${amount[0].toLocaleString()} is being processed.`,
+      isRead: false,
+      createdAt: serverTimestamp()
+    });
+
+    setTimeout(() => {
+      setStep(3);
+      setIsSubmitting(false);
+    }, 1000);
+  };
 
   if (step === 3) {
     return (
@@ -31,7 +69,7 @@ export default function LoanApplyPage() {
           <CardContent className="p-6 space-y-4">
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground font-semibold">Reference ID</span>
-              <span className="font-mono font-bold text-primary">LN-8823910</span>
+              <span className="font-mono font-bold text-primary">LN-{Math.floor(Math.random() * 1000000)}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground font-semibold">Monthly EMI</span>
@@ -125,8 +163,12 @@ export default function LoanApplyPage() {
           <Button variant="outline" className="h-14 flex-1 rounded-2xl border-gray-200 font-bold" onClick={() => window.history.back()}>
             Cancel
           </Button>
-          <Button className="h-14 flex-[2] rounded-2xl indigo-gradient text-white font-extrabold text-lg shadow-lg" onClick={() => setStep(3)}>
-            Apply Now
+          <Button 
+            className="h-14 flex-[2] rounded-2xl indigo-gradient text-white font-extrabold text-lg shadow-lg" 
+            onClick={handleApply}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Processing..." : "Apply Now"}
           </Button>
         </div>
       </div>

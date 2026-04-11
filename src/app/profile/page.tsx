@@ -7,8 +7,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { 
   Building2, 
   Settings, 
-  Shield, 
-  HelpCircle, 
   ChevronRight, 
   LogOut,
   Bell,
@@ -102,7 +100,10 @@ export default function ProfilePage() {
                <Link 
                  key={item.label} 
                  href={item.href} 
-                 className={`flex items-center justify-between p-5 hover:bg-gray-50 transition-colors active:bg-gray-100 ${idx !== arr.length - 1 ? 'border-b border-gray-50/50' : ''}`}
+                 className={cn(
+                   "flex items-center justify-between p-5 hover:bg-gray-50 transition-colors active:bg-gray-100",
+                   idx !== arr.length - 1 && "border-b border-gray-50/50"
+                 )}
                >
                  <div className="flex items-center gap-5">
                    <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", item.bg)}>

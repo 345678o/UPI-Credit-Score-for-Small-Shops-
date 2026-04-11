@@ -1,4 +1,3 @@
-
 "use client";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -9,8 +8,8 @@ import { QrCode, Scan, IndianRupee, CheckCircle2, Download, Share2 } from "lucid
 import Image from "next/image";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { collection, getFirestore, serverTimestamp, doc, getDoc } from "firebase/firestore";
+import { useUser, addDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase";
+import { collection, getFirestore, serverTimestamp, doc, getDoc, increment } from "firebase/firestore";
 
 export default function PaymentsPage() {
   const { user } = useUser();
@@ -26,11 +25,12 @@ export default function PaymentsPage() {
     const db = getFirestore();
     const txnsRef = collection(db, "users", user.uid, "transactions");
     const userRef = doc(db, "users", user.uid);
+    const amountNum = parseFloat(amount);
 
     // 1. Record the transaction
     addDocumentNonBlocking(txnsRef, {
       userId: user.uid,
-      amount: parseFloat(amount),
+      amount: amountNum,
       type: "credit",
       status: "success",
       timestamp: serverTimestamp(),
@@ -39,24 +39,37 @@ export default function PaymentsPage() {
       description: "Payment received via QR/ID",
     });
 
-    // 2. Simulate Backend Logic: Recalculate Credit Score and Loan Eligibility
-    // In a real app, this happens in a Cloud Function triggered by the transaction onCreate.
-    // For prototyping, we do it here to show immediate impact.
+    // 2. Update Daily Aggregates for Analytics
+    const today = new Date().toISOString().split('T')[0];
+    const aggregateRef = doc(db, "users", user.uid, "dailyBusinessAggregates", today);
+    
+    // Using set with merge to update or create the aggregate for today
+    setDocumentNonBlocking(aggregateRef, {
+      id: today,
+      userId: user.uid,
+      date: today,
+      totalEarnings: increment(amountNum),
+      totalExpenses: 0,
+      netEarnings: increment(amountNum),
+      transactionCount: increment(1),
+      hourlyTransactionCounts: Array(24).fill(0).map((_, i) => i === new Date().getHours() ? 1 : 0)
+    }, { merge: true });
+
+    // 3. Simulate Backend Logic: Recalculate Credit Score and Loan Eligibility
     try {
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const userData = userSnap.data();
         const currentScore = userData.creditScore || 300;
         
-        // Logic: Each transaction adds 2-5 points to consistency/volume
+        // Simulating score improvement logic
         const newScore = Math.min(900, currentScore + Math.floor(Math.random() * 3) + 2);
         
-        // Eligibility: simple tiers
         let newEligible = 0;
-        if (newScore > 700) newEligible = 150000;
-        else if (newScore > 600) newEligible = 75000;
-        else if (newScore > 500) newEligible = 40000;
-        else if (newScore > 400) newEligible = 20000;
+        if (newScore > 700) newEligible = 250000;
+        else if (newScore > 600) newEligible = 100000;
+        else if (newScore > 500) newEligible = 50000;
+        else if (newScore > 400) newEligible = 25000;
         else newEligible = 10000;
 
         updateDocumentNonBlocking(userRef, {
@@ -65,21 +78,20 @@ export default function PaymentsPage() {
           lastUpdated: serverTimestamp()
         });
 
-        // 3. Create a notification for the user
+        // 4. Create a notification
         const notifRef = collection(db, "users", user.uid, "notifications");
         addDocumentNonBlocking(notifRef, {
           userId: user.uid,
           type: "transaction_successful",
-          message: `Received ₹${parseFloat(amount).toLocaleString()} from ${payer || "Customer"}. Your credit score improved!`,
+          message: `Received ₹${amountNum.toLocaleString()} from ${payer || "Customer"}. Your credit eligibility updated!`,
           isRead: false,
           createdAt: serverTimestamp()
         });
       }
     } catch (e) {
-      console.error("Simulation error:", e);
+      console.error("Core Loop Error:", e);
     }
 
-    // Mock delay for UX
     setTimeout(() => {
       setShowSuccess(true);
       setIsProcessing(false);
