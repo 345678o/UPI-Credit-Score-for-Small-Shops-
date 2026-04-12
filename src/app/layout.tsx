@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: 'Smart payment and credit platform for small business owners in India',
 };
 
+import { TransactionProvider } from '@/context/TransactionContext';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -22,8 +24,10 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-background selection:bg-emerald-500/30">
         <FirebaseClientProvider>
-          {children}
-          <Toaster />
+          <TransactionProvider>
+            {children}
+            <Toaster />
+          </TransactionProvider>
         </FirebaseClientProvider>
       </body>
     </html>

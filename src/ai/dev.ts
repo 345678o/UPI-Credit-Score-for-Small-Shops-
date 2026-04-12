@@ -3,3 +3,4 @@ config();
 
 import '@/ai/flows/business-performance-insights.ts';
 import '@/ai/flows/credit-score-improvement-recommendations.ts';
+import '@/ai/flows/credipay-advisor.ts';

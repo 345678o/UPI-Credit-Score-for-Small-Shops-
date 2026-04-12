@@ -48,7 +48,7 @@ export default function ProfilePage() {
     { icon: Bell, label: "Notifications", color: "text-orange-500", bg: "bg-orange-500/10", href: "/notifications" },
     { icon: Landmark, label: "Settlement Hub", color: "text-indigo-500", bg: "bg-indigo-500/10", href: "/profile/settlements" },
     { icon: Lock, label: "Security Center", color: "text-rose-500", bg: "bg-rose-500/10", href: "/profile/security" },
-    { icon: Share2, label: "Invite Others", color: "text-emerald-500", bg: "bg-emerald-500/10", href: "/profile/invite" },
+    { icon: Share2, label: "Invite Others", color: "text-emerald-500", bg: "bg-emerald-500/10", href: "/referrals" },
     { icon: TrendingUp, label: "Investor Vision", color: "text-emerald-500", bg: "bg-emerald-500/10", href: "/vision" },
     { icon: MessageSquare, label: "Help & Support", color: "text-zinc-500", bg: "bg-zinc-500/10", href: "/profile/support" },
   ];

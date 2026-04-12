@@ -16,11 +16,13 @@ import { cn } from "@/lib/utils";
 import { useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { creditScoreImprovementRecommendations } from "@/ai/flows/credit-score-improvement-recommendations";
 import { doc, getFirestore, collection, query, orderBy, limit } from "firebase/firestore";
+import { useTransactions, BASELINE_EARNINGS, BASELINE_CREDIT } from "@/context/TransactionContext";
 
 export default function CreditPage() {
   const { user } = useUser();
+  const { creditScore: simulatedCreditScore } = useTransactions();
   const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [isAiLoading, setIsAiLoading] = useState(true);
+  const [isAiLoading, setIsAiLoading] = useState(false);
   
   const db = getFirestore();
 
@@ -92,10 +94,10 @@ export default function CreditPage() {
     { label: "Transaction Volume", value: volumeScore || 8, color: "bg-emerald-500" },
   ];
 
-  const score = merchant?.creditScore || 742;
+  const score = BASELINE_CREDIT + simulatedCreditScore;
   const readinessPercentage = Math.round(Math.min(100, ((score - 300) / (900 - 300)) * 100));
 
-  const eligibleAmount = merchant?.loanEligibleAmount || (score > 500 ? 50000 : 0);
+  const eligibleAmount = score > 500 ? (score - 500) * 1000 : 0;
 
   const loanOffers = [
     { 

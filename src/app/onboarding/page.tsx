@@ -14,6 +14,8 @@ import { useAuth, useUser, initiateAnonymousSignIn, initiateEmailSignIn, setDocu
 import { doc, getFirestore, serverTimestamp, getDoc } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
+import { processReferralCode } from "@/lib/referral-system";
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1);
@@ -30,6 +32,8 @@ export default function OnboardingPage() {
   const { user, isUserLoading, userError } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [appliedReferral, setAppliedReferral] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkExisting() {
@@ -48,6 +52,13 @@ export default function OnboardingPage() {
     }
     checkExisting();
   }, [user, isUserLoading, router]);
+
+  useEffect(() => {
+    const code = sessionStorage.getItem("referral_code") || searchParams.get("ref");
+    if (code) {
+      setAppliedReferral(code);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (userError) {
@@ -87,12 +98,12 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleCompleteOnboarding = () => {
+  const handleCompleteOnboarding = async () => {
     if (!user) return;
     const db = getFirestore();
     const userRef = doc(db, "users", user.uid);
 
-    setDocumentNonBlocking(userRef, {
+    await setDocumentNonBlocking(userRef, {
       id: user.uid,
       businessName: businessName || "My Store",
       ownerName: ownerName || "Merchant",
@@ -103,9 +114,18 @@ export default function OnboardingPage() {
       businessType: businessType,
       creditScore: 350,
       loanEligibleAmount: 10000,
-      rewardPoints: 100,
+      rewardPoints: appliedReferral ? 350 : 100, // Extra 250 for referral
       createdAt: serverTimestamp(),
     }, { merge: true });
+
+    if (appliedReferral) {
+      try {
+        await processReferralCode(appliedReferral, user.uid);
+      } catch (e) {
+        console.error("Referral application failed", e);
+      }
+      sessionStorage.removeItem("referral_code");
+    }
 
     router.push("/");
   };
@@ -229,6 +249,12 @@ export default function OnboardingPage() {
                   <div className="text-center mb-8">
                     <h2 className="text-2xl font-black tracking-tight">Profile Setup</h2>
                     <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest mt-2">Initialize your business data</p>
+                    {appliedReferral && (
+                      <div className="mt-4 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full inline-flex items-center gap-2">
+                        <Zap className="w-3 h-3 text-emerald-500" />
+                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Referral Applied: {appliedReferral} (+₹250 Bonus)</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-4">

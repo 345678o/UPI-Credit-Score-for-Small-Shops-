@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useUser, addDocumentNonBlocking } from "@/firebase";
-import { recordBusinessTransaction } from "@/lib/fintech-backend";
+import { backend } from "@/lib/backend-core";
 import { collection, getFirestore, serverTimestamp } from "firebase/firestore";
 
 export default function LoanApplyPage() {
@@ -44,7 +44,7 @@ export default function LoanApplyPage() {
     });
 
     // 2. Record as Inflow in Ledger (Capital Injection)
-    await recordBusinessTransaction({
+    await backend.recordTransaction({
       userId: user.uid,
       amount: amount[0],
       type: "credit",

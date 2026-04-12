@@ -8,7 +8,7 @@
  * - Referral analytics
  */
 
-import { getFirestore, collection, doc, serverTimestamp, increment, addDoc, setDoc, updateDoc, getDoc, getDocs, query, orderBy, limit, where, runTransaction } from "firebase/firestore";
+import { Firestore, collection, doc, serverTimestamp, increment, addDoc, setDoc, updateDoc, getDoc, getDocs, query, orderBy, limit, where, runTransaction } from "firebase/firestore";
 
 export interface ReferralCode {
   id: string;
@@ -64,14 +64,15 @@ export function generateReferralCode(userId: string): string {
 /**
  * Create a new referral code for a user
  */
-export async function createReferralCode(userId: string): Promise<{ success: boolean; code?: string; error?: string; shareUrl?: string }> {
+export async function createReferralCode(db: Firestore, userId: string): Promise<{ success: boolean; code?: string; error?: string; shareUrl?: string }> {
   try {
-    const db = getFirestore();
     const code = generateReferralCode(userId);
     const expiresAt = new Date();
     expiresAt.setMonth(expiresAt.getMonth() + 6); // Expires in 6 months
 
-    const referralCodeRef = await addDoc(collection(db, "referralCodes"), {
+    console.log("Attempting to create referral code:", code, "for user:", userId);
+
+    await addDoc(collection(db, "referralCodes"), {
       code,
       referrerId: userId,
       status: 'active',
@@ -96,19 +97,20 @@ export async function createReferralCode(userId: string): Promise<{ success: boo
     });
 
     return { success: true, code, shareUrl };
-  } catch (error) {
-    console.error('Error creating referral code:', error);
-    return { success: false, error: 'Failed to create referral code' };
+  } catch (error: any) {
+    console.error('CRITICAL: Error creating referral code:', error);
+    return { 
+      success: false, 
+      error: error?.message || 'Failed to create referral code. Please check your network or try again.' 
+    };
   }
 }
 
 /**
  * Get user's referral code and link
  */
-export async function getUserReferralInfo(userId: string): Promise<{ code?: string; shareUrl?: string; referralStats?: any }> {
+export async function getUserReferralInfo(db: Firestore, userId: string): Promise<{ code?: string; shareUrl?: string; referralStats?: any }> {
   try {
-    const db = getFirestore();
-    
     // Get referral code
     const codeQuery = query(
       collection(db, "referralCodes"),
@@ -165,10 +167,8 @@ export async function getUserReferralInfo(userId: string): Promise<{ code?: stri
 /**
  * Validate and process a referral code
  */
-export async function processReferralCode(code: string, referredUserId: string, ipAddress?: string): Promise<{ success: boolean; message: string; reward?: number }> {
+export async function processReferralCode(db: Firestore, code: string, referredUserId: string, ipAddress?: string): Promise<{ success: boolean; message: string; reward?: number }> {
   try {
-    const db = getFirestore();
-    
     // Find the referral code
     const codeQuery = query(
       collection(db, "referralCodes"),
@@ -272,7 +272,7 @@ export async function processReferralCode(code: string, referredUserId: string, 
     });
 
     // Process the rewards (update user points, etc.)
-    await processReferralRewards(result.referrerReward, result.referredReward);
+    await processReferralRewards(db, result.referrerReward, result.referredReward);
 
     return { 
       success: true, 
@@ -289,9 +289,7 @@ export async function processReferralCode(code: string, referredUserId: string, 
 /**
  * Process pending referral rewards
  */
-async function processReferralRewards(referrerRewardId: string, referredRewardId: string): Promise<void> {
-  const db = getFirestore();
-  
+async function processReferralRewards(db: Firestore, referrerRewardId: string, referredRewardId: string): Promise<void> {
   // Update referrer's reward points
   const referrerDoc = await getDoc(doc(db, "referralRewards", referrerRewardId));
   const referrerUserId = referrerDoc.data()?.userId;
@@ -324,10 +322,8 @@ async function processReferralRewards(referrerRewardId: string, referredRewardId
 /**
  * Track referral link clicks
  */
-export async function trackReferralClick(code: string, ipAddress: string, userAgent?: string): Promise<void> {
+export async function trackReferralClick(db: Firestore, code: string, ipAddress: string, userAgent?: string): Promise<void> {
   try {
-    const db = getFirestore();
-    
     // Find the referral link
     const linkQuery = query(
       collection(db, "referralLinks"),
@@ -364,15 +360,13 @@ export async function trackReferralClick(code: string, ipAddress: string, userAg
 /**
  * Get referral analytics for a user
  */
-export async function getReferralAnalytics(userId: string): Promise<{
+export async function getReferralAnalytics(db: Firestore, userId: string): Promise<{
   totalReferrals: number;
   pendingRewards: number;
   totalEarned: number;
   recentReferrals: any[];
 }> {
   try {
-    const db = getFirestore();
-    
     // Get all referral rewards for this user (as referrer)
     const rewardsQuery = query(
       collection(db, "referralRewards"),

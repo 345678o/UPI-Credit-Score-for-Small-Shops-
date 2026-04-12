@@ -7,18 +7,19 @@ import { Button } from "@/components/ui/button";
 import { 
   Home, IndianRupee, Gift, ShieldCheck, User, 
   BarChart3, Users, Settings, LogOut, Bell, Search, Command,
-  Menu, ChevronLeft, ChevronRight, X
+  Menu, ChevronLeft, ChevronRight, X, BrainCircuit
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/firebase";
 import { useState, useEffect } from "react";
+import { TransitionOverlay } from "@/components/ui/TransitionOverlay";
 
 const navItems = [
   { label: "Overview", icon: Home, href: "/", desktopOnly: false },
-  { label: "Vault", icon: IndianRupee, href: "/payments", desktopOnly: false },
   { label: "Ledger", icon: BarChart3, href: "/transactions", desktopOnly: false },
+  { label: "Customers", icon: Users, href: "/customers", desktopOnly: false },
+  { label: "Insights", icon: BrainCircuit, href: "/insights", desktopOnly: false },
   { label: "Credit", icon: ShieldCheck, href: "/credit", desktopOnly: false },
-  { label: "Customers", icon: Users, href: "/analytics", desktopOnly: true },
   { label: "Profile", icon: User, href: "/profile", desktopOnly: false },
 ];
 
@@ -45,6 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-[100dvh] w-full bg-background overflow-hidden relative">
+      <TransitionOverlay />
       
       {/* 1. Desktop Sidebar (Collapsible) */}
       <aside className={cn(

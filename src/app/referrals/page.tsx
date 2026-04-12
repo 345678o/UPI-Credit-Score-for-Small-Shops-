@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { useUser } from "@/firebase";
+import { useUser, useFirebase } from "@/firebase";
 import { 
   createReferralCode, 
   getUserReferralInfo, 
@@ -23,6 +23,7 @@ import {
 
 export default function ReferralsPage() {
   const { user } = useUser();
+  const { firestore } = useFirebase();
   const [referralInfo, setReferralInfo] = useState<any>(null);
   const [referralCode, setReferralCode] = useState("");
   const [showCode, setShowCode] = useState(false);
@@ -32,30 +33,33 @@ export default function ReferralsPage() {
   const [shareMessage, setShareMessage] = useState("");
 
   useEffect(() => {
-    if (user) {
+    if (user && firestore) {
       loadReferralInfo();
       loadAnalytics();
     }
-  }, [user]);
+  }, [user, firestore]);
 
   const loadReferralInfo = async () => {
-    if (!user) return;
-    const info = await getUserReferralInfo(user.uid);
+    if (!user || !firestore) return;
+    const info = await getUserReferralInfo(firestore, user.uid);
     setReferralInfo(info);
+    if (info?.code) {
+      setReferralCode(info.code);
+    }
   };
 
   const loadAnalytics = async () => {
-    if (!user) return;
-    const data = await getReferralAnalytics(user.uid);
+    if (!user || !firestore) return;
+    const data = await getReferralAnalytics(firestore, user.uid);
     setAnalytics(data);
   };
 
   const handleCreateCode = async () => {
-    if (!user) return;
+    if (!user || !firestore) return;
     
     setIsCreating(true);
     try {
-      const result = await createReferralCode(user.uid);
+      const result = await createReferralCode(firestore, user.uid);
       if (result.success) {
         setReferralCode(result.code || "");
         setShowCode(true);
@@ -63,9 +67,9 @@ export default function ReferralsPage() {
       } else {
         alert(result.error || "Failed to create referral code");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating referral code:', error);
-      alert("Failed to create referral code");
+      alert(error?.message || "Failed to create referral code. Please try again.");
     } finally {
       setIsCreating(false);
     }
@@ -114,13 +118,13 @@ export default function ReferralsPage() {
   };
 
   const handleReferralSubmit = async (code: string) => {
-    if (!user) {
+    if (!user || !firestore) {
       alert("Please login to use referral code");
       return;
     }
 
     try {
-      const result = await processReferralCode(code, user.uid);
+      const result = await processReferralCode(firestore, code, user.uid);
       if (result.success) {
         alert(`🎉 Referral successful! You earned ₹${result.reward} bonus!`);
         window.location.reload();

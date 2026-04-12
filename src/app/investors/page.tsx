@@ -13,17 +13,19 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useTransactions, BASELINE_EARNINGS, BASELINE_MERCHANTS } from "@/context/TransactionContext";
 
 export default function InvestorHubPage() {
+  const { totalEarnings, transactions, merchantsCount } = useTransactions();
   const [activePhase, setActivePhase] = useState(1);
 
   const companyMetrics = {
-    totalMerchants: "50,000+",
-    monthlyTransactions: "₹2.5Cr",
-    avgCreditScore: 742,
-    loanDisbursed: "₹15Cr",
-    growthRate: "340%",
-    activeCities: 25
+    totalMerchants: (merchantsCount + BASELINE_MERCHANTS).toLocaleString() + "+",
+    monthlyTransactions: "₹" + ((totalEarnings + BASELINE_EARNINGS) / 100000).toFixed(2) + "L",
+    avgCreditScore: (merchantsCount + BASELINE_MERCHANTS) > 5 ? 782 : 742,
+    loanDisbursed: "₹" + ((totalEarnings + BASELINE_EARNINGS) / 200000).toFixed(1) + "L",
+    growthRate: (merchantsCount + BASELINE_MERCHANTS) > 1 ? ((merchantsCount + BASELINE_MERCHANTS) * 12).toString() + "%" : "100%",
+    activeCities: Math.min(25, 1 + Math.floor((merchantsCount + BASELINE_MERCHANTS) / 5))
   };
 
   const roadmapPhases = [

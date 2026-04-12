@@ -17,13 +17,17 @@ import { useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { doc, getFirestore, collection, query, orderBy, limit } from "firebase/firestore";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { useState, useEffect } from "react";
+import QRCode from "react-qr-code";
 import { getBusinessPerformanceInsights } from "@/ai/flows/business-performance-insights";
+import { useTransactions, BASELINE_EARNINGS, BASELINE_MERCHANTS, BASELINE_CREDIT } from "@/context/TransactionContext";
+import { generateAndStoreCrediPayInsight, AIInsight } from "@/lib/agent";
 
 export default function Dashboard() {
   const { user } = useUser();
   const [insights, setInsights] = useState<string[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [advisorInsight, setAdvisorInsight] = useState<AIInsight | null>(null);
   
   const db = getFirestore();
 
@@ -49,6 +53,7 @@ export default function Dashboard() {
     return query(collection(db, "users", user.uid, "transactions"), orderBy("timestamp", "desc"), limit(4));
   }, [user]);
   const { data: transactions, isLoading: isTxnsLoading } = useCollection(txnsQuery);
+  const { transactions: simulatedTransactions, totalEarnings: simulatedTotalEarnings, creditScore: simulatedCreditScore } = useTransactions();
 
   useEffect(() => {
     async function loadInsights() {
@@ -64,6 +69,17 @@ export default function Dashboard() {
             hourlySales: []
           });
           setInsights(res.insights || []);
+
+          // Generate and Store the new CrediPay AI Advisor Insight
+          const advisorRes = await generateAndStoreCrediPayInsight(user.uid, {
+            income: (summary.totalEarningsOverall || 0) + simulatedTotalEarnings,
+            expenses: summary.totalExpensesOverall || 0,
+            creditScore: (user as any)?.creditScore || 742,
+            transactionActivity: ((summary.transactionCountOverall || 0) + simulatedTransactions.length) > 50 ? "high" : "medium",
+            previousIncome: summary.previousWeekEarnings || 0
+          });
+          setAdvisorInsight(advisorRes);
+
         } catch (e) {
           console.error(e);
         } finally {
@@ -72,7 +88,7 @@ export default function Dashboard() {
       }
     }
     loadInsights();
-  }, [user, summary]);
+  }, [user, summary, simulatedTotalEarnings, simulatedTransactions.length]);
 
   // Transform Weekly Data
   const chartData = (weeklyAggregates || []).map((day: any) => ({
@@ -102,34 +118,29 @@ export default function Dashboard() {
 
   const finalCategoryData = categoryData.length > 0 ? categoryData : [{ name: 'Awaiting Data', value: 100, color: '#18181b' }];
 
-  const creditScore = (user as any)?.creditScore || 742;
+  
+  const currentCreditScore = BASELINE_CREDIT + simulatedCreditScore;
   const lastEarnings = summary?.totalEarningsOverall || 0;
   const lastExpenses = summary?.totalExpensesOverall || 0;
   const expenseRatio = lastEarnings > 0 ? Math.round((lastExpenses / lastEarnings) * 100) : 0;
-  const todayEarnings = todayStats?.totalEarnings || 0;
-  const txCount = todayStats?.transactionCount || 0;
-
-  // Dynamic WHY explanations for credit score
-  const creditReason = txCount >= 3
-    ? "Consistent daily sales boosted this"
-    : todayEarnings > 0
-    ? "Today's income improved your standing"
-    : "Make sales today to grow your score";
+  const todayEarnings = (todayStats?.totalEarnings || 0) + simulatedTotalEarnings;
+  const txCount = (todayStats?.transactionCount || 0) + simulatedTransactions.length;
+  const creditReason = (user as any)?.creditReason || "Transaction velocity is stable";
 
   const stats = [
     { 
-      label: "Today's Earnings", 
-      value: `₹${todayEarnings.toLocaleString()}`, 
-      trend: "+100%", 
-      icon: IndianRupee, 
-      color: "text-emerald-500",
-      bgColor: "bg-emerald-500/10",
-      why: todayEarnings > 0 ? `From ${txCount} sale${txCount !== 1 ? 's' : ''} logged today` : "No sales logged yet today"
+      label: "Total Sales", 
+      value: "₹" + (BASELINE_EARNINGS + (todayStats?.totalEarnings || 0) + simulatedTotalEarnings).toLocaleString(), 
+      trend: "+12.4%", 
+      icon: TrendingUp, 
+      color: "text-indigo-500",
+      bgColor: "bg-indigo-500/10",
+      why: "Revenue is up compared to same day last week"
     },
     { 
       label: "Orders Today", 
       value: txCount.toString(), 
-      trend: "Fresh", 
+      trend: "+8.2%", 
       icon: ShoppingBag, 
       color: "text-indigo-500",
       bgColor: "bg-indigo-500/10",
@@ -146,7 +157,7 @@ export default function Dashboard() {
     },
     { 
       label: "Credit Score", 
-      value: creditScore, 
+      value: BASELINE_CREDIT + simulatedCreditScore, 
       trend: txCount > 0 ? `+${txCount * 2} pts today` : "No change", 
       icon: ShieldCheck, 
       color: "text-emerald-500",
@@ -157,9 +168,8 @@ export default function Dashboard() {
 
   const quickActions = [
     { label: "Scan", icon: QrCode, href: "/payments/scan", color: "bg-rose-500/10 text-rose-500" },
-    { label: "Asset", icon: PlusCircle, href: "/payments", color: "bg-emerald-500/10 text-emerald-500" },
-    { label: "Balance", icon: Wallet, href: "/balance", color: "bg-amber-500/10 text-amber-400" },
-    { label: "History", icon: History, href: "/transactions", color: "bg-zinc-800 text-zinc-400" },
+    { label: "Ledger", icon: History, href: "/transactions", color: "bg-emerald-500/10 text-emerald-500" },
+    { label: "Transactions", icon: BarChart3, href: "/transactions", color: "bg-amber-500/10 text-amber-400" },
     { label: "Loans", icon: Coins, href: "/credit", color: "bg-indigo-500/10 text-indigo-500" },
   ];
 
@@ -229,7 +239,7 @@ export default function Dashboard() {
 
         {/* 2. PRIMARY OPERATIONAL ACTIONS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
-           <Link href="/payments?mode=credit">
+           <Link href="/receive">
               <Button className="w-full h-[120px] rounded-[2.5rem] bg-emerald-500 text-black font-black text-lg gap-5 shadow-2xl active:scale-95 transition-all group overflow-hidden relative">
                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                  <ArrowDownLeft className="w-9 h-9 stroke-[3px]" />
@@ -250,11 +260,11 @@ export default function Dashboard() {
                  Check Balance
               </Button>
            </Link>
-           <Link href="/payments?mode=debit">
+           <Link href="/transactions">
               <Button className="w-full h-[120px] rounded-[2.5rem] bg-rose-500 text-white font-black text-lg gap-5 shadow-2xl active:scale-95 transition-all group overflow-hidden relative">
                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                  <PlusCircle className="w-9 h-9 stroke-[3px]" />
-                 Add Expense
+                 Add Ledger
               </Button>
            </Link>
         </div>
@@ -288,22 +298,46 @@ export default function Dashboard() {
                <div className="space-y-4">
                   {isTxnsLoading ? (
                      [1, 2].map(i => <Skeleton key={i} className="h-28 w-full rounded-[2.5rem] bg-zinc-900" />)
-                  ) : transactions?.map((tx: any) => (
-                    <div key={tx.id} className="flex items-center justify-between p-6 lg:p-8 bg-zinc-950 border border-white/10 rounded-[2.5rem] hover:bg-zinc-900 transition-all group">
-                       <div className="flex items-center gap-6">
-                          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-12", tx.type === "credit" ? "bg-emerald-500/10 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.1)]" : "bg-rose-500/10 text-rose-500")}>
-                             {tx.type === "credit" ? <ArrowDownLeft className="w-8 h-8" /> : <ArrowUpRight className="w-8 h-8" />}
-                          </div>
-                          <div>
-                             <p className="text-sm lg:text-lg font-black text-white uppercase tracking-tighter truncate max-w-[150px] lg:max-w-none">{tx.payerIdentifier || "Merchant Vault"}</p>
-                             <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] mt-1">{tx.category || "General"} • {tx.method}</p>
-                          </div>
-                       </div>
-                       <p className={cn("text-xl lg:text-3xl font-black tabular-nums tracking-tighter", tx.type === "credit" ? "text-emerald-500" : "text-rose-500")}>
-                          {tx.type === "credit" ? "+" : "-"}₹{tx.amount.toLocaleString()}
-                       </p>
-                    </div>
-                  ))}
+                  ) : (
+                     <>
+                        {[
+                          ...(simulatedTransactions || []).map(tx => ({ ...tx, isSimulated: true })),
+                          ...(transactions || []).map(tx => ({ ...tx, isSimulated: false }))
+                        ].slice(0, 4).map((tx: any, idx) => (
+                          tx.isSimulated ? (
+                            <div key={`sim-${idx}`} className="flex items-center justify-between p-6 lg:p-8 bg-emerald-950/20 border border-emerald-500/20 rounded-[2.5rem] hover:bg-emerald-900/10 transition-all group mb-4">
+                               <div className="flex items-center gap-6">
+                                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-emerald-500/10 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                                     <ArrowDownLeft className="w-8 h-8" />
+                                  </div>
+                                  <div>
+                                     <p className="text-sm lg:text-lg font-black text-white uppercase tracking-tighter truncate max-w-[150px] lg:max-w-none">{tx.name}</p>
+                                     <p className="text-[9px] font-bold text-emerald-500/60 uppercase tracking-[0.2em] mt-1">SIMULATED • {tx.time}</p>
+                                  </div>
+                               </div>
+                               <p className="text-xl lg:text-3xl font-black tabular-nums tracking-tighter text-emerald-500">
+                                  +₹{tx.amount.toLocaleString()}
+                               </p>
+                            </div>
+                          ) : (
+                            <div key={tx.id} className="flex items-center justify-between p-6 lg:p-8 bg-zinc-950 border border-white/10 rounded-[2.5rem] hover:bg-zinc-900 transition-all group mb-4">
+                               <div className="flex items-center gap-6">
+                                  <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:rotate-12", tx.type === "credit" ? "bg-emerald-500/10 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.1)]" : "bg-rose-500/10 text-rose-500")}>
+                                     {tx.type === "credit" ? <ArrowDownLeft className="w-8 h-8" /> : <ArrowUpRight className="w-8 h-8" />}
+                                  </div>
+                                  <div>
+                                     <p className="text-sm lg:text-lg font-black text-white uppercase tracking-tighter truncate max-w-[150px] lg:max-w-none">{tx.payerIdentifier || "Merchant Vault"}</p>
+                                     <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] mt-1">{tx.category || "General"} • {tx.method}</p>
+                                  </div>
+                               </div>
+                               <p className={cn("text-xl lg:text-3xl font-black tabular-nums tracking-tighter", tx.type === "credit" ? "text-emerald-500" : "text-rose-500")}>
+                                  {tx.type === "credit" ? "+" : "-"}₹{tx.amount.toLocaleString()}
+                               </p>
+                            </div>
+                          )
+                        ))}
+                     </>
+                  )}
                </div>
             </section>
           </div>
@@ -372,23 +406,55 @@ export default function Dashboard() {
                 </div>
             </Card>
 
-            <section className="bg-emerald-500/5 border border-emerald-500/10 rounded-[2.5rem] p-10 lg:p-12 relative group overflow-hidden">
+            <section className="bg-zinc-950 border border-white/5 rounded-[3rem] p-10 lg:p-12 relative group overflow-hidden shadow-2xl">
+                <div className="absolute top-0 right-0 p-8 opacity-5">
+                   <Sparkles className="w-24 h-24 text-emerald-500" />
+                </div>
+                
                 <div className="flex items-center gap-4 mb-10">
-                   <Sparkles className="w-5 h-5 text-emerald-500" />
-                   <h3 className="text-xs font-black text-white uppercase tracking-widest">Growth Narratives</h3>
+                   <div className="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center text-black">
+                      <Sparkles className="w-5 h-5 shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
+                   </div>
+                   <h3 className="text-[10px] font-black text-white uppercase tracking-[4px]">CrediPay AI Advisor</h3>
                 </div>
-                <div className="space-y-6">
-                  {isAiLoading ? (
-                     [1, 2].map(i => <Skeleton key={i} className="h-20 w-full rounded-2xl bg-zinc-900" />)
-                  ) : insights.slice(0, 4).map((insight, idx) => (
-                     <div key={idx} className="flex gap-4">
-                        <div className="w-1 h-auto rounded-full bg-emerald-500/30 shrink-0" />
-                        <p className="text-[11px] font-bold text-zinc-400 group-hover:text-zinc-200 leading-relaxed italic transition-colors">
-                           "{insight}"
-                        </p>
-                     </div>
-                  ))}
-                </div>
+
+                {isAiLoading ? (
+                   <div className="space-y-6">
+                      <Skeleton className="h-4 w-3/4 bg-zinc-900" />
+                      <Skeleton className="h-4 w-1/2 bg-zinc-900" />
+                      <Skeleton className="h-12 w-full bg-zinc-900 rounded-2xl" />
+                   </div>
+                ) : advisorInsight ? (
+                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                      <div>
+                         <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-2">Primary Insight</p>
+                         <h4 className="text-2xl font-black text-white tracking-tighter italic leading-tight">
+                            "{advisorInsight.insight}"
+                         </h4>
+                      </div>
+
+                      <div className="space-y-4">
+                         <div>
+                            <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Reasoning Analysis</p>
+                            <p className="text-xs font-bold text-zinc-400">{advisorInsight.reason}</p>
+                         </div>
+                         
+                         <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-3xl relative overflow-hidden group/action">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover/action:scale-110 transition-transform">
+                               <TrendingUp className="w-8 h-8 text-emerald-500" />
+                            </div>
+                            <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-2">Recommended Action</p>
+                            <p className="text-sm font-black text-white leading-relaxed italic pr-8">
+                               {advisorInsight.action}
+                            </p>
+                         </div>
+                      </div>
+                   </div>
+                ) : (
+                   <div className="p-10 text-center">
+                      <p className="text-xs font-bold text-zinc-700 uppercase tracking-widest italic">Awaiting Financial Streams...</p>
+                   </div>
+                )}
             </section>
           </div>
 
@@ -400,15 +466,15 @@ export default function Dashboard() {
               <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/[0.02] rounded-full -mr-32 -mt-32 blur-[100px]" />
               
               {/* The Business QR */}
-              <div className="relative group">
-                 <div className="absolute inset-0 bg-emerald-500/20 blur-[40px] opacity-0 group-hover:opacity-100 transition-opacity" />
-                 <div className="w-64 h-64 bg-white p-6 rounded-[2.5rem] relative z-10 shadow-2xl">
-                    <QrCode className="w-full h-full text-black stroke-[1.5px]" />
-                 </div>
-                 <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest rounded-full shadow-xl">
-                    Verified Terminal
-                 </div>
-              </div>
+               <Link href="/receive" className="relative group">
+                  <div className="absolute -inset-4 bg-emerald-500/10 blur-2xl rounded-[3rem] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="w-64 h-64 bg-white p-6 rounded-[2.5rem] relative z-10 shadow-2xl transition-transform duration-500 group-hover:scale-105 flex items-center justify-center">
+                     <QRCode value="upi://pay?pa=shop@upi&pn=KiranaStore" size={180} />
+                  </div>
+                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest rounded-full shadow-xl">
+                     Verified Terminal
+                  </div>
+               </Link>
 
               <div className="flex-1 space-y-8 text-center md:text-left">
                  <div>
@@ -424,9 +490,9 @@ export default function Dashboard() {
                        </Link>
                     </Button>
                     <Button asChild variant="outline" className="h-18 px-10 rounded-[1.75rem] border-white/5 bg-zinc-900/50 text-white font-black text-sm uppercase tracking-widest gap-4 hover:bg-zinc-800 transition-all w-full">
-                       <Link href="/payments?mode=credit">
+                       <Link href="/receive">
                           <PlusCircle className="w-5 h-5" />
-                          Manual Entry
+                          View My QR
                        </Link>
                     </Button>
                  </div>

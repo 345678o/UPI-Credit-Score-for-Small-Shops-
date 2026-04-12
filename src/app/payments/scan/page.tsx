@@ -1,18 +1,34 @@
-
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, Zap, ShieldCheck, X, RefreshCw, AlertCircle, ArrowRight, Wallet, PlusCircle } from "lucide-react";
-import Link from "next/link";
+import * as React from "react";
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { 
+  ChevronLeft, 
+  Zap, 
+  ShieldCheck, 
+  X, 
+  RefreshCw, 
+  AlertCircle, 
+  ArrowRight, 
+  Wallet, 
+  PlusCircle 
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { backend } from "@/lib/backend-core";
+import { useUser } from "@/firebase";
+import { useTransactions } from "@/context/TransactionContext";
 
 /**
  * High-Fidelity UPI QR Scanner.
  * Parses standard UPI deep-links: upi://pay?pa=...&pn=...
  */
 export default function ScanPayPage() {
+  const { user } = useUser();
+  const { addTransaction } = useTransactions();
   const [isScanning, setIsScanning] = useState(true);
   const [scannedData, setScannedData] = useState<{ pa: string; pn: string; am?: string } | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -37,13 +53,19 @@ export default function ScanPayPage() {
           setScannedData({
             pa: "merchant.hub@hdfcbank",
             pn: "CrediPay Unified Hub",
-            am: "0.00"
+            am: "250.00"
           });
           setIsScanning(false);
         }, 4000);
         
         return () => {
-          stream.getTracks().forEach(track => track.stop());
+          if (stream) {
+            stream.getTracks().forEach(track => {
+              if (track.readyState === 'live') {
+                track.stop();
+              }
+            });
+          }
           clearTimeout(timer);
         };
       } catch (err) {
@@ -54,9 +76,29 @@ export default function ScanPayPage() {
     startCamera();
   }, []);
 
-  const handleProceed = () => {
-    if (scannedData) {
-      router.push(`/payments?mode=debit&pa=${scannedData.pa}&pn=${scannedData.pn}`);
+  const handleProceed = async () => {
+    if (scannedData && user) {
+      const amount = parseFloat(scannedData.am || "0");
+      
+      // 1. Record in real backend
+      await backend.recordTransaction({
+        userId: user.uid,
+        amount: amount > 0 ? amount : 250, // Default for demo if not in QR
+        type: "debit",
+        category: "Payments",
+        payerIdentifier: scannedData.pn,
+        description: `Payment to ${scannedData.pn} via UPI Scan`
+      });
+
+      // 2. Update simulation layer
+      addTransaction({
+        name: scannedData.pn,
+        amount: amount > 0 ? amount : 250,
+        type: "debit",
+      });
+
+      // 3. Success navigation
+      router.push(`/success?name=${encodeURIComponent(scannedData.pn)}&amount=${amount > 0 ? amount : 250}`);
     }
   };
 
@@ -147,7 +189,7 @@ export default function ScanPayPage() {
                       <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[4px]">Scan Any UPI QR Code</span>
                    </div>
                    
-                   <Link href="/payments?mode=credit" className="w-full">
+                   <Link href="/transactions" className="w-full">
                       <Button variant="outline" className="w-full h-16 rounded-2xl border-white/10 bg-black/40 text-white font-black text-[10px] uppercase tracking-[4px] gap-4 backdrop-blur-xl">
                          <PlusCircle className="w-4 h-4" />
                          Enter Details Manually
