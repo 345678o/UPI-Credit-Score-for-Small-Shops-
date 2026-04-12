@@ -29,6 +29,9 @@ import { useUser, useDoc, useMemoFirebase } from "@/firebase";
 import { getFirestore, doc } from "firebase/firestore";
 import { useTransactions, BASELINE_EARNINGS, BASELINE_CREDIT } from "@/context/TransactionContext";
 import { TowerLoader } from "@/components/ui/TowerLoader";
+import { Mail, Loader2 } from "lucide-react";
+import { EmailService } from "@/lib/email-service";
+import { toast } from "@/hooks/use-toast";
 
 export default function VisionPage() {
   const { user } = useUser();
@@ -40,6 +43,8 @@ export default function VisionPage() {
   const [activeTab, setActiveTab] = useState<"traction" | "roadmap" | "pitch">("traction");
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPitch, setShowPitch] = useState(false);
+  const [targetEmail, setTargetEmail] = useState("24r21a67d2@mlrit.ac.in");
+  const [isSharing, setIsSharing] = useState(false);
 
   const handleGeneratePitch = () => {
     setIsGenerating(true);
@@ -47,6 +52,33 @@ export default function VisionPage() {
       setIsGenerating(false);
       setShowPitch(true);
     }, 3500);
+  };
+
+  const handleShareByEmail = async () => {
+    if (!targetEmail) return;
+    setIsSharing(true);
+    
+    try {
+      await EmailService.send({
+        to: targetEmail,
+        subject: `Investment Opportunity: ${userData?.businessName || 'Merchant'} Performance Proof`,
+        body: `Hello, I am sharing the updated business traction and roadmap for ${userData?.businessName || 'my business'}...`,
+        template: 'reward'
+      });
+      
+      toast({
+        title: "Proposal Transmitted",
+        description: `Your investment memo has been securely sent to ${targetEmail}`,
+      });
+    } catch (e) {
+      toast({
+        title: "Transmission Error",
+        description: "Institutional bridge failed to reach the recipient.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const businessName = userData?.businessName || "My Business";
@@ -262,12 +294,18 @@ export default function VisionPage() {
                  </div>
                  
                  <div className="flex flex-col sm:flex-row justify-center gap-4">
-                    <Button className="h-20 px-12 rounded-[2rem] bg-indigo-500 text-white font-black text-lg gap-4 shadow-2xl active:scale-95 transition-all">
+                    <Button 
+                      onClick={handleGeneratePitch}
+                      className="h-20 px-12 rounded-[2rem] bg-indigo-500 text-white font-black text-lg gap-4 shadow-2xl active:scale-95 transition-all"
+                    >
                        Download Deck <Zap className="w-5 h-5 fill-white" />
                     </Button>
-                    <Button className="h-20 px-12 rounded-[2rem] bg-zinc-950 border border-white/10 text-zinc-400 font-black text-lg gap-4 active:scale-95 transition-all">
+                    <a 
+                      href={`mailto:investor-relations@credipay.app?subject=Interest in ${businessName}&body=Hi ${userData?.ownerName || 'Merchant'}, I am interested in learning more about your business growth...`}
+                      className="h-20 px-12 rounded-[2rem] bg-zinc-950 border border-white/10 text-zinc-400 font-black text-lg gap-4 active:scale-95 transition-all flex items-center justify-center"
+                    >
                        Talk to Owner <Globe className="w-5 h-5" />
-                    </Button>
+                    </a>
                  </div>
               </Card>
 
@@ -298,16 +336,18 @@ export default function VisionPage() {
         {/* DIGITAL PITCH DECK OVERLAY */}
         {showPitch && (
           <div className="fixed inset-0 z-[200] bg-white text-black overflow-y-auto animate-in slide-in-from-bottom-20 duration-700">
-            <div className="max-w-4xl mx-auto py-20 px-8 lg:px-20 space-y-24">
+            <div className="max-w-4xl mx-auto py-20 px-8 lg:px-20 space-y-16">
+
+              {/* Header */}
               <div className="flex justify-between items-start">
                 <div>
                   <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center mb-10">
                     <IndianRupee className="w-6 h-6 text-white" />
                   </div>
                   <h1 className="text-5xl font-black tracking-tighter italic uppercase mb-2">Investment Memo</h1>
-                  <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-[5px]">Proprietary & Confidential v2026.04</p>
+                  <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-[5px]">Proprietary &amp; Confidential v2026.04</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowPitch(false)}
                   className="p-4 hover:bg-zinc-100 rounded-full transition-colors"
                 >
@@ -315,26 +355,28 @@ export default function VisionPage() {
                 </button>
               </div>
 
+              {/* 01 Entity Overview */}
               <div className="space-y-6">
                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-200 pb-2">01 / Entity Overview</p>
                 <div className="grid grid-cols-2 gap-12">
-                   <div>
-                     <p className="text-xs font-black uppercase text-zinc-400 mb-1">Business</p>
-                     <p className="text-2xl font-black tracking-tight">{businessName}</p>
-                   </div>
-                   <div>
-                     <p className="text-xs font-black uppercase text-zinc-400 mb-1">Sector</p>
-                     <p className="text-2xl font-black tracking-tight">{userData?.businessType || "Retail"}</p>
-                   </div>
+                  <div>
+                    <p className="text-xs font-black uppercase text-zinc-400 mb-1">Business</p>
+                    <p className="text-2xl font-black tracking-tight">{businessName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase text-zinc-400 mb-1">Sector</p>
+                    <p className="text-2xl font-black tracking-tight">{userData?.businessType ?? 'Retail'}</p>
+                  </div>
                 </div>
               </div>
 
+              {/* 02 Growth Analytics */}
               <div className="space-y-8 bg-zinc-50 p-12 rounded-[2.5rem]">
                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-200 pb-2">02 / Growth Analytics</p>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-12">
                   <div>
                     <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-4">Volume (6m)</p>
-                    <p className="text-3xl font-black tracking-tighter">₹{(earnings/1000).toFixed(1)}k</p>
+                    <p className="text-3xl font-black tracking-tighter">₹{(earnings / 1000).toFixed(1)}k</p>
                   </div>
                   <div>
                     <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-4">Trust Score</p>
@@ -351,30 +393,61 @@ export default function VisionPage() {
                 </div>
               </div>
 
+              {/* 03 Executive Statement */}
               <div className="space-y-6">
                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest border-b border-zinc-200 pb-2">03 / Executive Statement</p>
                 <p className="text-2xl font-medium leading-tight">
-                  "{businessName} represents a new high-frequency retail node in the {userData?.businessType || "General Store"} sector. 
-                  Our transition to a fully digital ledger has optimized our debt eligibility and provided 4x 
-                  visibility into local market demand."
+                  &ldquo;{businessName} represents a new high-frequency retail node in the {userData?.businessType ?? 'General Store'} sector.
+                  Our transition to a fully digital ledger has optimized our debt eligibility and provided 4x
+                  visibility into local market demand.&rdquo;
                 </p>
               </div>
 
-              <div className="pt-20 border-t border-zinc-100 flex items-center justify-between">
+              {/* Share Section */}
+              <div className="flex flex-col gap-6 p-10 bg-zinc-50 rounded-[2.5rem] border border-zinc-200">
+                <div>
+                  <h4 className="text-xs font-black uppercase text-zinc-400 mb-2">Share With Institutional Partner</h4>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-relaxed">
+                    Securely transmit this investment memo to a verified external stakeholder.
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <input
+                    type="email"
+                    value={targetEmail}
+                    onChange={(e) => setTargetEmail(e.target.value)}
+                    placeholder="investor@example.com"
+                    className="flex-1 h-14 px-6 rounded-xl border border-zinc-200 bg-white text-sm font-bold focus:ring-2 focus:ring-black outline-none transition-all"
+                  />
+                  <Button
+                    onClick={handleShareByEmail}
+                    disabled={isSharing}
+                    className="h-14 px-10 rounded-xl bg-emerald-600 text-white font-black text-xs uppercase tracking-widest gap-3 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                  >
+                    {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                    Share Memo
+                  </Button>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="pt-10 border-t border-zinc-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white">
                     <ShieldCheck className="w-4 h-4" />
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest">Verified by CrediPay institutional Bridge</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Verified by CrediPay Institutional Bridge</p>
                 </div>
                 <Button className="h-14 px-8 rounded-xl bg-black text-white font-black text-xs uppercase tracking-widest gap-4">
                   <Printer className="w-4 h-4" />
                   Print Memo
                 </Button>
               </div>
+
             </div>
           </div>
         )}
+
 
       </div>
     </AppShell>
