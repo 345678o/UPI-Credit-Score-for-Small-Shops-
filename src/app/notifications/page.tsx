@@ -109,55 +109,9 @@ export default function NotificationsPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-        <aside className="lg:col-span-4 space-y-8">
-           <Card className="p-8 rounded-[2.5rem] bg-gray-50 border-none shadow-sm">
-              <h3 className="text-sm font-black text-primary uppercase tracking-widest mb-6 border-b border-gray-200 pb-4">Delivery Channels</h3>
-              <div className="space-y-6">
-                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                       <Mail className="w-5 h-5 text-gray-400" />
-                       <div>
-                          <p className="text-xs font-black text-primary">Official Email</p>
-                          <p className="text-[10px] font-bold text-muted-foreground truncate max-w-[120px]">{user?.email}</p>
-                       </div>
-                    </div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                 </div>
-                 <div className="flex items-center justify-between opacity-40">
-                    <div className="flex items-center gap-3">
-                       <Smartphone className="w-5 h-5 text-gray-400" />
-                       <div>
-                          <p className="text-xs font-black text-primary">SMS / WhatsApp</p>
-                          <p className="text-[10px] font-bold text-muted-foreground">Not Verified</p>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-              
-              <Button 
-                onClick={handleTestEmail}
-                disabled={isTestingEmail}
-                className="w-full h-14 rounded-2xl bg-primary text-white font-black text-[10px] uppercase tracking-widest gap-3 mt-10"
-              >
-                 {isTestingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                 Dispatch Test Alert
-              </Button>
-           </Card>
-           
-           <div className="px-8 flex items-center gap-4 py-4 bg-emerald-50 rounded-3xl border border-emerald-100">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center">
-                 <CheckCircle2 className="w-5 h-5 text-white" />
-              </div>
-              <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest leading-tight">
-                 Institutional Routing <br/> Is Fully Active
-              </p>
-           </div>
-        </aside>
-
-        <div className="lg:col-span-8 space-y-4 pb-12">
-           <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[5px] mb-6 px-4">Recent Transmissions</h3>
-        {isLoading ? (
+      <div className="max-w-3xl mx-auto space-y-4 pb-12">
+         <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[5px] mb-6 px-4">Recent Transmissions</h3>
+      {isLoading ? (
           [1, 2, 3, 4].map(i => <Skeleton key={i} className="h-24 w-full rounded-[2rem]" />)
         ) : notifications && notifications.length > 0 ? (
           notifications.map((notif: any) => (
@@ -194,7 +148,6 @@ export default function NotificationsPage() {
             </p>
           </div>
         )}
-        </div>
       </div>
     </AppShell>
   );

@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { 
   Users, Search, Filter, ArrowUpRight, 
   Crown, Star, UserPlus, MoreHorizontal,
-  TrendingUp, Calendar, CreditCard, ShoppingBag
+  TrendingUp, Calendar, CreditCard, ShoppingBag,
+  Download, Mail, Phone, ExternalLink
 } from "lucide-react";
 import { useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { getFirestore, collection, query, orderBy } from "firebase/firestore";
@@ -16,6 +17,15 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { toast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Customer {
   id: string;
@@ -42,11 +52,44 @@ export default function CustomersPage() {
   }, [user]);
 
   const { data: customers, isLoading } = useCollection(customersQuery);
+  const [loyaltyFilter, setLoyaltyFilter] = useState<string>("All");
 
-  const filteredCustomers = (customers || []).filter((c: any) => 
-    c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.phone?.includes(searchQuery)
-  );
+  const filteredCustomers = (customers || []).filter((c: any) => {
+    const matchesSearch = c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         c.phone?.includes(searchQuery);
+    const matchesLoyalty = loyaltyFilter === "All" || c.loyaltyLevel === loyaltyFilter;
+    return matchesSearch && matchesLoyalty;
+  });
+
+  const exportToCSV = () => {
+    if (!filteredCustomers.length) {
+      toast({ title: "No data to export", variant: "destructive" });
+      return;
+    }
+
+    const headers = ["Name", "Phone", "Email", "Loyalty Level", "Total Spent", "Visit Count", "Last Visit"];
+    const rows = filteredCustomers.map(c => [
+      c.name,
+      c.phone || "N/A",
+      c.email || "N/A",
+      c.loyaltyLevel || "Bronze",
+      c.totalSpent || 0,
+      c.visitCount || 0,
+      c.lastVisit?.toDate ? c.lastVisit.toDate().toLocaleDateString() : "N/A"
+    ]);
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `customers_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: "Export Successful", description: "CSV file has been downloaded." });
+  };
 
   const stats = [
     { label: "Total Customers", value: customers?.length || 0, icon: Users, color: "text-blue-500", bgColor: "bg-blue-500/10" },
@@ -96,11 +139,34 @@ export default function CustomersPage() {
             />
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" className="h-14 px-6 rounded-2xl border-white/5 bg-zinc-900 text-zinc-400 font-bold text-xs uppercase tracking-widest gap-3">
-              <Filter className="w-4 h-4" />
-              Filter
-            </Button>
-            <Button variant="outline" className="h-14 px-6 rounded-2xl border-white/5 bg-zinc-900 text-zinc-400 font-bold text-xs uppercase tracking-widest gap-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-14 px-6 rounded-2xl border-white/5 bg-zinc-900 text-zinc-400 font-bold text-xs uppercase tracking-widest gap-3">
+                  <Filter className="w-4 h-4" />
+                  {loyaltyFilter === "All" ? "Filter" : loyaltyFilter}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-zinc-900 border-white/5 text-white">
+                <DropdownMenuLabel className="text-zinc-500 text-[10px] uppercase tracking-widest">Loyalty Tiers</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-white/5" />
+                {["All", "Platinum", "Gold", "Silver", "Bronze"].map(level => (
+                  <DropdownMenuItem 
+                    key={level} 
+                    className="hover:bg-white/10 cursor-pointer text-xs"
+                    onClick={() => setLoyaltyFilter(level)}
+                  >
+                    {level}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button 
+              variant="outline" 
+              onClick={exportToCSV}
+              className="h-14 px-6 rounded-2xl border-white/5 bg-zinc-900 text-zinc-400 font-bold text-xs uppercase tracking-widest gap-3"
+            >
+              <Download className="w-4 h-4" />
               Export CSV
             </Button>
           </div>
@@ -166,9 +232,29 @@ export default function CustomersPage() {
                       </div>
                     </td>
                     <td className="px-8 py-6 text-right">
-                      <button className="p-2 rounded-xl bg-zinc-900 border border-white/5 text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all opacity-0 group-hover:opacity-100">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-2 rounded-xl bg-zinc-900 border border-white/5 text-zinc-500 hover:text-white hover:bg-zinc-800 transition-all opacity-0 group-hover:opacity-100">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-zinc-900 border-white/5 text-white w-48">
+                          <DropdownMenuLabel className="text-zinc-500 text-[10px] uppercase tracking-widest">Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator className="bg-white/5" />
+                          <DropdownMenuItem className="hover:bg-white/10 cursor-pointer gap-2 py-3">
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span className="text-xs">View Profile</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="hover:bg-white/10 cursor-pointer gap-2 py-3 text-emerald-500">
+                            <Phone className="w-3.5 h-3.5" />
+                            <span className="text-xs">Contact (WA)</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="hover:bg-white/10 cursor-pointer gap-2 py-3">
+                            <Mail className="w-3.5 h-3.5" />
+                            <span className="text-xs">Send Email</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))

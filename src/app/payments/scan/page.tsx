@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { backend } from "@/lib/backend-core";
 import { useUser } from "@/firebase";
 import { useTransactions } from "@/context/TransactionContext";
+import { useStore } from "@/context/StoreContext";
 
 /**
  * High-Fidelity UPI QR Scanner.
@@ -29,6 +30,7 @@ import { useTransactions } from "@/context/TransactionContext";
 export default function ScanPayPage() {
   const { user } = useUser();
   const { addTransaction } = useTransactions();
+  const { selectedStore } = useStore();
   const [isScanning, setIsScanning] = useState(true);
   const [scannedData, setScannedData] = useState<{ pa: string; pn: string; am?: string } | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -80,9 +82,10 @@ export default function ScanPayPage() {
     if (scannedData && user) {
       const amount = parseFloat(scannedData.am || "0");
       
-      // 1. Record in real backend
+      // 1. Record in real backend (Include storeId if selected)
       await backend.recordTransaction({
         userId: user.uid,
+        storeId: selectedStore?.id, // Attribute to selected store if exists
         amount: amount > 0 ? amount : 250, // Default for demo if not in QR
         type: "debit",
         category: "Payments",

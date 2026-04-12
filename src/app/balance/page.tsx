@@ -39,7 +39,7 @@ export default function BalancePage() {
   const txnsQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(
-      collection(db, "users", user.uid, "transactions"),
+      collection(db, "users", user.uid, "ledgerNodes"),
       orderBy("timestamp", "desc"),
       limit(5)
     );

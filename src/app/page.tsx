@@ -14,16 +14,18 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
-import { doc, getFirestore, collection, query, orderBy, limit } from "firebase/firestore";
+import { doc, getFirestore, collection, query, orderBy, limit, where } from "firebase/firestore";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { useState, useEffect } from "react";
 import QRCode from "react-qr-code";
 import { getBusinessPerformanceInsights } from "@/ai/flows/business-performance-insights";
 import { useTransactions, BASELINE_EARNINGS, BASELINE_MERCHANTS, BASELINE_CREDIT } from "@/context/TransactionContext";
+import { useStore } from "@/context/StoreContext";
 import { generateAndStoreCrediPayInsight, AIInsight } from "@/lib/agent";
 
 export default function Dashboard() {
   const { user } = useUser();
+  const { selectedStore, stores } = useStore();
   const [insights, setInsights] = useState<string[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -33,14 +35,23 @@ export default function Dashboard() {
 
   // 1. Fetch Today's Aggregate
   const today = new Date().toISOString().split('T')[0];
-  const todayRef = useMemoFirebase(() => user ? doc(db, "users", user.uid, "dailyBusinessAggregates", today) : null, [user]);
+  const todayRef = useMemoFirebase(() => {
+    if (!user) return null;
+    if (selectedStore) {
+      return doc(db, "users", user.uid, "stores", selectedStore.id, "dailyAggregates", today);
+    }
+    return doc(db, "users", user.uid, "dailyBusinessAggregates", today);
+  }, [user, selectedStore]);
   const { data: todayStats } = useDoc(todayRef);
 
   // 2. Fetch Weekly Aggregates (Real Backend Data)
   const weeklyQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "users", user.uid, "dailyBusinessAggregates"), orderBy("date", "desc"), limit(7));
-  }, [user]);
+    const collPath = selectedStore 
+      ? `users/${user.uid}/stores/${selectedStore.id}/dailyAggregates`
+      : `users/${user.uid}/dailyBusinessAggregates`;
+    return query(collection(db, collPath), orderBy("date", "desc"), limit(7));
+  }, [user, selectedStore]);
   const { data: weeklyAggregates } = useCollection(weeklyQuery);
 
   // 3. Fetch Summary for Category Split
@@ -50,8 +61,16 @@ export default function Dashboard() {
   // 4. Recent Transactions
   const txnsQuery = useMemoFirebase(() => {
     if (!user) return null;
-    return query(collection(db, "users", user.uid, "transactions"), orderBy("timestamp", "desc"), limit(4));
-  }, [user]);
+    if (selectedStore) {
+      return query(
+        collection(db, "users", user.uid, "ledgerNodes"), 
+        where("storeId", "==", selectedStore.id),
+        orderBy("timestamp", "desc"), 
+        limit(4)
+      );
+    }
+    return query(collection(db, "users", user.uid, "ledgerNodes"), orderBy("timestamp", "desc"), limit(4));
+  }, [user, selectedStore]);
   const { data: transactions, isLoading: isTxnsLoading } = useCollection(txnsQuery);
   const { transactions: simulatedTransactions, totalEarnings: simulatedTotalEarnings, creditScore: simulatedCreditScore } = useTransactions();
 
@@ -177,8 +196,26 @@ export default function Dashboard() {
     <AppShell>
       <header className="mb-10 lg:mb-14 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-           <h1 className="text-3xl lg:text-4xl font-black text-white tracking-tighter">Business Overview</h1>
-           <p className="text-[10px] font-black text-emerald-500 mt-2 uppercase tracking-[4px] px-1 animate-pulse">Live Server Active</p>
+           <div className="flex items-center gap-4 mb-2">
+              <h1 className="text-3xl lg:text-4xl font-black text-white tracking-tighter">
+                {selectedStore ? selectedStore.name : "Portfolio Overview"}
+              </h1>
+              {selectedStore ? (
+                <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                   <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Active Store</span>
+                </div>
+              ) : (
+                <Link href="/analytics/aggregated">
+                   <Button variant="ghost" className="h-8 px-3 rounded-xl bg-indigo-500/10 text-indigo-500 font-black text-[9px] uppercase tracking-widest gap-2 hover:bg-indigo-500/20">
+                      Aggregated Suite <ArrowUpRight className="w-3 h-3" />
+                   </Button>
+                </Link>
+              )}
+           </div>
+           <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[4px] px-1">
+             {selectedStore ? `${selectedStore.location} — ${selectedStore.category}` : "All locations synchronized"}
+           </p>
         </div>
         <div className="flex gap-3">
            {quickActions.map(action => (

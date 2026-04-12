@@ -35,7 +35,7 @@ export default function WeeklyReportPage() {
   const weeklyTxnsQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(
-      collection(db, "users", user.uid, "transactions"),
+      collection(db, "users", user.uid, "ledgerNodes"),
       where("timestamp", ">=", lastWeekStart),
       orderBy("timestamp", "desc")
     );

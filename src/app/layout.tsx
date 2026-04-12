@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 import { TransactionProvider } from '@/context/TransactionContext';
+import { StoreProvider } from '@/context/StoreContext';
 
 export default function RootLayout({
   children,
@@ -24,10 +25,12 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-background selection:bg-emerald-500/30">
         <FirebaseClientProvider>
-          <TransactionProvider>
-            {children}
-            <Toaster />
-          </TransactionProvider>
+          <StoreProvider>
+            <TransactionProvider>
+              {children}
+              <Toaster />
+            </TransactionProvider>
+          </StoreProvider>
         </FirebaseClientProvider>
       </body>
     </html>

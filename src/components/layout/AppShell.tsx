@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -7,19 +6,21 @@ import { Button } from "@/components/ui/button";
 import { 
   Home, IndianRupee, Gift, ShieldCheck, User, 
   BarChart3, Users, Settings, LogOut, Bell, Search, Command,
-  Menu, ChevronLeft, ChevronRight, X, BrainCircuit
+  Menu, ChevronLeft, ChevronRight, X, BrainCircuit, Zap, Receipt
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/firebase";
 import { useState, useEffect } from "react";
 import { TransitionOverlay } from "@/components/ui/TransitionOverlay";
+import { StoreSwitcher } from "./StoreSwitcher";
 
 const navItems = [
   { label: "Overview", icon: Home, href: "/", desktopOnly: false },
   { label: "Ledger", icon: BarChart3, href: "/transactions", desktopOnly: false },
+  { label: "Compliance", icon: Receipt, href: "/analytics/tax", desktopOnly: false },
   { label: "Customers", icon: Users, href: "/customers", desktopOnly: false },
   { label: "Insights", icon: BrainCircuit, href: "/insights", desktopOnly: false },
-  { label: "Credit", icon: ShieldCheck, href: "/credit", desktopOnly: false },
+  { label: "Loans", icon: ShieldCheck, href: "/credit", desktopOnly: false },
   { label: "Profile", icon: User, href: "/profile", desktopOnly: false },
 ];
 
@@ -71,6 +72,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Infrastructure Layer</p>
              </div>
            )}
+        </div>
+
+        <div className="mb-10 px-2">
+           <StoreSwitcher isCollapsed={isCollapsed} />
         </div>
 
         <nav className="flex-1 space-y-2">
@@ -138,10 +143,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                  <Bell className="w-5 h-5 text-zinc-500 group-hover:text-white transition-colors" />
                  <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-zinc-950" />
               </Link>
-              <Link href="/credit">
+              <Link href="/credit/apply">
                 <Button className="h-12 px-8 rounded-2xl bg-emerald-500 text-black font-black text-xs uppercase tracking-widest gap-3 shadow-lg shadow-emerald-500/10 active:scale-95 transition-all">
-                   <IndianRupee className="w-4 h-4 stroke-[3px]" />
-                   Issue Credit
+                   <Zap className="w-4 h-4 fill-black" />
+                   Request Capital
                 </Button>
               </Link>
            </div>

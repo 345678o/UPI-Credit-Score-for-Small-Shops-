@@ -22,7 +22,7 @@ export async function recordBusinessTransaction(entry: TransactionEntry) {
   const currentHour = now.getHours();
 
   // 1. Core Transaction Record
-  const txnsRef = collection(db, "users", entry.userId, "transactions");
+  const txnsRef = collection(db, "users", entry.userId, "ledgerNodes");
   const txnId = await addDocumentNonBlocking(txnsRef, {
     ...entry,
     status: "success",

@@ -120,7 +120,7 @@ export default function OnboardingPage() {
 
     if (appliedReferral) {
       try {
-        await processReferralCode(appliedReferral, user.uid);
+        await processReferralCode(db, appliedReferral, user.uid);
       } catch (e) {
         console.error("Referral application failed", e);
       }

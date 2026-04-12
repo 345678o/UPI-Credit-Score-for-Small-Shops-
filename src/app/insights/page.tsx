@@ -34,7 +34,7 @@ export default function BusinessInsightsPage() {
   const txnsQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(
-      collection(db, "users", user.uid, "transactions"),
+      collection(db, "users", user.uid, "ledgerNodes"),
       where("timestamp", ">=", thirtyDaysAgo),
       orderBy("timestamp", "desc")
     );

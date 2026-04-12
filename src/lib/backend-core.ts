@@ -11,6 +11,7 @@
 
 import { getFirestore, collection, doc, serverTimestamp, increment, runTransaction, DocumentReference, setDoc, updateDoc, writeBatch, getDoc, getDocs, query, orderBy, limit, where } from "firebase/firestore";
 import { addDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { MessagingService } from "./messaging-service";
 
 // Performance monitoring
 interface PerformanceMetrics {
@@ -163,6 +164,7 @@ export const performanceMonitor = new PerformanceMonitor();
 // Enhanced transaction types
 export interface EnhancedTransactionEntry {
   userId: string;
+  storeId?: string; // Phase 5: Multi-store support
   amount: number;
   type: "credit" | "debit";
   category: string;
@@ -232,7 +234,7 @@ export class EnhancedBackend {
       this.validateTransactionEntry(entry);
 
       // Record transaction with enhanced metadata
-      const txnsRef = collection(this.db, "users", entry.userId, "transactions");
+      const txnsRef = collection(this.db, "users", entry.userId, "ledgerNodes");
       const txnId = await addDocumentNonBlocking(txnsRef, {
         ...entry,
         status: "success",
@@ -245,6 +247,12 @@ export class EnhancedBackend {
       
       // Update aggregates with enhanced calculations
       await this.updateAggregates(entry);
+      
+      // Phase 7: Automated High-Value Alert
+      if (entry.amount >= 10000) {
+        MessagingService.alerts.sendCriticalAlert("Merchant", "HighValueAudit")
+          .catch(err => console.error("Alert failed:", err));
+      }
       
       // Cache result
       cache.set(cacheKey, { id: (txnId as any)?.id || 'unknown' }, 60000); // Cache for 1 minute
@@ -492,12 +500,20 @@ export class EnhancedBackend {
     const today = now.toISOString().split('T')[0];
     const currentHour = now.getHours();
 
+    // 1. User-level Aggregates (Aggregated)
     const aggregateRef = doc(this.db, "users", entry.userId, "dailyBusinessAggregates", today);
+    
+    // 2. Store-level Aggregates (Specific)
+    const storeAggregateRef = entry.storeId 
+      ? doc(this.db, "users", entry.userId, "stores", entry.storeId, "dailyAggregates", today)
+      : null;
+
     const hourlyUpdateKey = `hourlyTransactionCounts.${currentHour}`;
     
-    const aggregateData: Record<string, any> = {
+    const updateData: Record<string, any> = {
       id: today,
       userId: entry.userId,
+      storeId: entry.storeId || null,
       date: today,
       transactionCount: increment(1),
       [hourlyUpdateKey]: increment(1),
@@ -505,19 +521,23 @@ export class EnhancedBackend {
     };
 
     if (entry.type === "debit") {
-      aggregateData.totalExpenses = increment(entry.amount);
-      aggregateData.netEarnings = increment(-entry.amount);
+      updateData.totalExpenses = increment(entry.amount);
+      updateData.netEarnings = increment(-entry.amount);
     } else {
-      aggregateData.totalEarnings = increment(entry.amount);
-      aggregateData.netEarnings = increment(entry.amount);
+      updateData.totalEarnings = increment(entry.amount);
+      updateData.netEarnings = increment(entry.amount);
       
       // Enhanced customer tracking
       if (entry.payerIdentifier !== "General") {
-        aggregateData.uniqueCustomersCount = increment(1);
+        updateData.uniqueCustomersCount = increment(1);
       }
     }
 
-    setDocumentNonBlocking(aggregateRef, aggregateData, { merge: true });
+    setDocumentNonBlocking(aggregateRef, updateData, { merge: true });
+    if (storeAggregateRef) {
+      setDocumentNonBlocking(storeAggregateRef, updateData, { merge: true });
+    }
+    
     await this.updateLifetimeSummary(entry);
   }
 

@@ -8,7 +8,8 @@ import {
   Search, Filter, ArrowDownLeft, ArrowUpRight, 
   ChevronRight, Activity, TrendingUp, TrendingDown, 
   Plus, Download, Info, ShieldCheck, Zap, 
-  Clock, History, PlusCircle
+  Clock, History, PlusCircle, Share2, MessageCircle,
+  Send, X, Smartphone, Mail
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useTransactions, BASELINE_EARNINGS } from "@/context/TransactionContext";
 import { generateAndStoreCrediPayInsight, AIInsight } from "@/lib/agent";
 import { backend } from "@/lib/backend-core";
+import { MessagingService } from "@/lib/messaging-service";
 import { useEffect } from "react";
 
 export default function TransactionsPage() {
@@ -34,11 +36,45 @@ export default function TransactionsPage() {
   const [quickType, setQuickType] = useState<"credit" | "debit">("credit");
   const [isFormVisible, setIsFormVisible] = useState(false);
 
+  // Phase 7: Interactive Omni-channel Sharing State
+  const [sharingTx, setSharingTx] = useState<any>(null);
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [shareMethod, setShareMethod] = useState<"whatsapp" | "sms" | "email">("whatsapp");
+  const [isSending, setIsSending] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState(false);
+
+  const handleSendReceipt = () => {
+    setIsSending(true);
+    setTimeout(() => {
+      setIsSending(false);
+      setSendSuccess(true);
+      
+      const message = `🎉 Digital Receipt from ${sharingTx?.payerIdentifier || sharingTx?.name || 'CrediPay Merchant'}\nAmount: ₹${sharingTx?.amount.toLocaleString()}\nTx ID: ${sharingTx?.id || 'Manual'}\n\nVerified by CrediPay Ledger Infra.`;
+      
+      let link = "";
+      if (shareMethod === "whatsapp") {
+         link = `https://wa.me/${customerPhone}?text=${encodeURIComponent(message)}`;
+         if(customerPhone || true) window.open(link, '_blank');
+      } else if (shareMethod === "sms") {
+         link = `sms:${customerPhone}?body=${encodeURIComponent(message)}`;
+         if(customerPhone || true) window.open(link, '_blank');
+      } else {
+         alert("Email dispatch simulated successfully.");
+      }
+      
+      setTimeout(() => {
+        setSendSuccess(false);
+        setSharingTx(null);
+        setCustomerPhone("");
+      }, 1500);
+    }, 1200);
+  };
+
   const db = getFirestore();
   const txnsQuery = useMemoFirebase(() => {
     if (!user) return null;
     return query(
-      collection(db, "users", user.uid, "transactions"),
+      collection(db, "users", user.uid, "ledgerNodes"),
       orderBy("timestamp", "desc")
     );
   }, [user]);
@@ -293,7 +329,7 @@ export default function TransactionsPage() {
                 </div>
 
                 {/* Status */}
-                <div className="hidden md:flex col-span-2 justify-center">
+                <div className="hidden md:flex col-span-2 justify-center gap-3">
                    <div className={cn(
                       "flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-zinc-900 border border-white/5 text-[9px] font-black uppercase tracking-[2px]",
                       tx.type === 'credit' ? "text-emerald-500" : "text-rose-400"
@@ -301,6 +337,19 @@ export default function TransactionsPage() {
                       <ShieldCheck className="w-3.5 h-3.5" />
                       {tx.type === 'credit' ? 'Secured' : 'Debit'}
                    </div>
+                   
+                   {tx.type === 'credit' && (
+                     <button 
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         setSharingTx(tx);
+                       }}
+                       className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-black transition-all"
+                       title="Send Digital Receipt"
+                     >
+                        <Send className="w-4 h-4 ml-0.5" />
+                     </button>
+                   )}
                 </div>
 
                 {/* Value */}
@@ -323,6 +372,73 @@ export default function TransactionsPage() {
           )}
         </div>
       </div>
+
+      {/* Sharing Modal / Overlay */}
+      {sharingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <Card className="w-full max-w-md bg-zinc-950 border border-white/10 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden">
+            <button onClick={() => !isSending && setSharingTx(null)} className="absolute top-8 right-8 text-zinc-500 hover:text-white transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+            
+            <h3 className="text-xl font-black text-white tracking-tighter mb-2">Omnichannel Dispatch</h3>
+            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-8">Send Digital Receipt Node</p>
+
+            {sendSuccess ? (
+              <div className="py-12 flex flex-col items-center text-center animate-in zoom-in-95">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center mb-6">
+                  <ShieldCheck className="w-8 h-8" />
+                </div>
+                <h4 className="text-lg font-black text-white mb-2">Dispatch Confirmed</h4>
+                <p className="text-xs text-zinc-400 font-bold">The cryptographic receipt has been seamlessly transmitted over the preferred channel.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex gap-2 p-1.5 bg-zinc-900 rounded-2xl border border-white/5">
+                  {[
+                    { id: 'whatsapp', icon: MessageCircle, label: 'WhatsApp' },
+                    { id: 'sms', icon: Smartphone, label: 'SMS' },
+                    { id: 'email', icon: Mail, label: 'Email' }
+                  ].map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => setShareMethod(m.id as any)}
+                      className={cn(
+                        "flex-1 flex flex-col items-center justify-center p-3 rounded-xl transition-all gap-2",
+                        shareMethod === m.id ? "bg-white text-black shadow-lg" : "text-zinc-500 hover:text-white"
+                      )}
+                    >
+                      <m.icon className="w-4 h-4 shrink-0" />
+                      <span className="text-[9px] font-black uppercase tracking-widest leading-none">{m.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest px-2">
+                    {shareMethod === 'email' ? 'Destination Email' : 'Destination Mobile'}
+                  </p>
+                  <input 
+                    type={shareMethod === 'email' ? 'email' : 'tel'} 
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder={shareMethod === 'email' ? 'customer@entity.com' : '+91 98765 43210'} 
+                    className="w-full h-14 bg-zinc-900/50 border border-white/5 rounded-2xl px-6 text-sm text-white font-bold focus:outline-none focus:border-emerald-500/50 transition-all" 
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleSendReceipt} 
+                  disabled={isSending || !customerPhone}
+                  className="w-full h-14 rounded-[2rem] bg-emerald-500 text-black font-black text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none mt-2 gap-3"
+                >
+                  {isSending ? "Transmitting..." : <><Send className="w-4 h-4 ml-1" /> Dispatch Protocol</>}
+                </Button>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
     </AppShell>
   );
 }
