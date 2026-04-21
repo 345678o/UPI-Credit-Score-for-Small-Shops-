@@ -29,6 +29,8 @@ export interface LoanApplication {
   userId: string;
   nbfcPartnerId: string;
   nbfcPartnerName: string;
+  nbfcPartner?: string; // Added to match usage in application page
+  nbfcResponse?: NBFCResponse; // Added to match usage in application page
   loanType: 'working_capital' | 'term_loan' | 'emergency_credit' | 'inventory_financing';
   requestedAmount: number;
   approvedAmount?: number;
@@ -39,6 +41,9 @@ export interface LoanApplication {
   purpose: string;
   creditScore: number;
   monthlyRevenue: number;
+  businessAge?: number; // Added to match usage
+  transactionVolume?: number; // Added to match usage
+  expenseRatio?: number; // Added to match usage
   status: 'pending' | 'approved' | 'rejected' | 'disbursed' | 'repayment' | 'closed';
   appliedAt: any;
   decisionAt?: any;
@@ -67,6 +72,7 @@ export interface NBFCResponse {
   processingFee?: number;
   rejectionReason?: string;
   turnaroundTime?: string;
+  nextSteps?: string; // Added to match usage
 }
 
 // ── NBFC Partners ─────────────────────────────────────────────────────────────
@@ -347,4 +353,54 @@ export async function sendDisbursalEmail(email: string, amount: number, lenderNa
     body: `Great news! Your business loan of ₹${amount.toLocaleString('en-IN')} from ${lenderName} has been approved and disbursed to your CrediPay ledger. Your first EMI of ₹${emi.toLocaleString('en-IN')} is due in 30 days. Log in to view your full repayment schedule.`,
     template: 'reward',
   });
+}
+
+/** Check application status from NBFC */
+export async function checkApplicationStatus(applicationId: string, partnerId: string): Promise<NBFCResponse | null> {
+  // SIMULATION: In a real app, this would call the NBFC's status API
+  const db = getFirestore();
+  
+  // Try to find the application to get details for simulation
+  // This is a simplified simulation
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        applicationId,
+        status: 'approved',
+        approvedAmount: 250000,
+        interestRate: 14.5,
+        tenure: 12,
+        emi: 22500,
+        processingFee: 5000,
+        turnaroundTime: '2 hours',
+        nextSteps: 'Please sign the digital agreement in your email to proceed with disbursal.'
+      });
+    }, 1000);
+  });
+}
+
+/** Submit a new loan application */
+export async function submitLoanApplication(data: any): Promise<{ success: boolean; applicationId?: string; error?: string }> {
+  try {
+    const db = getFirestore();
+    const { userId, ...rest } = data;
+    
+    const docId = await saveLoanApplication(userId, {
+      nbfcPartnerId: data.nbfcPartner,
+      nbfcPartnerName: data.nbfcPartner === 'hdfc_nbfc' ? 'HDFC Business Loans' : 'Bajaj Finserv',
+      loanType: data.loanType,
+      requestedAmount: data.requestedAmount,
+      tenure: data.tenure,
+      interestRate: 14.5, // Simulated
+      emi: calculateEMI(data.requestedAmount, 14.5, data.tenure),
+      processingFee: Math.round(data.requestedAmount * 0.02),
+      purpose: data.purpose,
+      creditScore: data.creditScore,
+      monthlyRevenue: data.monthlyRevenue,
+    });
+    
+    return { success: true, applicationId: docId };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }

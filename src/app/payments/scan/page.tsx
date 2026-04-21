@@ -1,4 +1,5 @@
 "use client";
+// Refreshed to resolve IDE module resolution issues
 
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";

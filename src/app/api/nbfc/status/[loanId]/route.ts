@@ -8,15 +8,16 @@ getFirebaseServer();
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { loanId: string } }
+  { params }: { params: Promise<{ loanId: string }> }
 ) {
+  const { loanId } = await params;
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
 
   if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
 
   try {
-    const loan = await getLoan(userId, params.loanId);
+    const loan = await getLoan(userId, loanId);
     if (!loan) return NextResponse.json({ error: "Loan not found" }, { status: 404 });
     return NextResponse.json({ loan });
   } catch (err: any) {
@@ -26,8 +27,9 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { loanId: string } }
+  { params }: { params: Promise<{ loanId: string }> }
 ) {
+  const { loanId } = await params;
   try {
     const body = await req.json();
     const { userId, instalmentNumber, instalmentAmount } = body;
@@ -37,7 +39,7 @@ export async function POST(
     }
 
     // Mark EMI as paid
-    await markInstalmentPaid(userId, params.loanId, instalmentNumber);
+    await markInstalmentPaid(userId, loanId, instalmentNumber);
 
     // Record as debit transaction in main ledger
     await backend.recordTransaction({
@@ -46,7 +48,7 @@ export async function POST(
       type: "debit",
       category: "Loan Repayment",
       payerIdentifier: "NBFC Partner",
-      description: `EMI Payment #${instalmentNumber} for loan ${params.loanId}`,
+      description: `EMI Payment #${instalmentNumber} for loan ${loanId}`,
     });
 
     return NextResponse.json({ success: true });

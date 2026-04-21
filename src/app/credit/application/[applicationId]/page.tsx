@@ -61,7 +61,7 @@ export default function ApplicationStatusPage() {
         
         // Check NBFC status if application is pending
         if (appData.status === 'pending') {
-          const nbfcStatus = await checkApplicationStatus(applicationId, appData.nbfcPartner);
+          const nbfcStatus = await checkApplicationStatus(applicationId, appData.nbfcPartner || 'default_partner');
           if (nbfcStatus) {
             setNbfcResponse(nbfcStatus);
             
@@ -75,7 +75,7 @@ export default function ApplicationStatusPage() {
             });
           }
         } else {
-          setNbfcResponse(appData.nbfcResponse);
+          setNbfcResponse(appData.nbfcResponse || null);
         }
       }
     } catch (error) {
@@ -276,7 +276,7 @@ This is an automated loan offer letter. Please contact the NBFC partner for conf
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Expense Ratio</p>
-                  <p className="font-black text-white">{(application.expenseRatio * 100).toFixed(1)}%</p>
+                  <p className="font-black text-white">{((application.expenseRatio || 0) * 100).toFixed(1)}%</p>
                 </div>
               </div>
             </div>

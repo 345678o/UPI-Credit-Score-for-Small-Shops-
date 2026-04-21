@@ -26,9 +26,9 @@ export default function RewardsPage() {
 
   useEffect(() => {
     if (user) {
-      getUserReferralInfo(user.uid).then(setReferralInfo);
+      getUserReferralInfo(db, user.uid).then(setReferralInfo);
     }
-  }, [user]);
+  }, [user, db]);
 
   const points = (userData as any)?.rewardPoints || 0;
   const nextTier = 1000;
