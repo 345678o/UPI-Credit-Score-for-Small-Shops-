@@ -1,5 +1,4 @@
 "use client";
-// Refreshed to resolve IDE module resolution issues
 
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
@@ -40,9 +39,12 @@ export default function ScanPayPage() {
   const router = useRouter();
 
   useEffect(() => {
+    let stream: MediaStream | null = null;
+    let timer: NodeJS.Timeout;
+
     async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        stream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: "environment" } 
         });
         
@@ -52,7 +54,7 @@ export default function ScanPayPage() {
         setHasPermission(true);
         
         // SIMULATION: In a real app, you'd use a QR library to decode the video frame.
-        const timer = setTimeout(() => {
+        timer = setTimeout(() => {
           setScannedData({
             pa: "merchant.hub@hdfcbank",
             pn: "CrediPay Unified Hub",
@@ -60,23 +62,20 @@ export default function ScanPayPage() {
           });
           setIsScanning(false);
         }, 4000);
-        
-        return () => {
-          if (stream) {
-            stream.getTracks().forEach(track => {
-              if (track.readyState === 'live') {
-                track.stop();
-              }
-            });
-          }
-          clearTimeout(timer);
-        };
       } catch (err) {
         setHasPermission(false);
         setError("Camera permission denied. Manual UPI entry required.");
       }
     }
+
     startCamera();
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   const handleProceed = async () => {

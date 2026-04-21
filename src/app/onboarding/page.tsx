@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import {
   ShieldCheck, IndianRupee, ArrowRight, Store, Mail,
   Info, User as UserIcon, Briefcase, Zap, Link as LinkIcon,
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import { processReferralCode } from "@/lib/referral-system";
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -78,7 +78,6 @@ export default function OnboardingPage() {
     
     try {
       initiateEmailSignIn(auth, email, password);
-      // Auth state change will be handled by onAuthStateChanged listener
     } catch (error) {
       setAuthError("Failed to sign in. Please check your credentials.");
       setIsLoading(false);
@@ -91,7 +90,6 @@ export default function OnboardingPage() {
     
     try {
       initiateAnonymousSignIn(auth);
-      // Auth state change will be handled by onAuthStateChanged listener
     } catch (error) {
       setAuthError("Failed to start sandbox session.");
       setIsLoading(false);
@@ -132,7 +130,6 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-4 md:p-8 font-sans overflow-hidden relative">
-      {/* Cinematic Background */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-emerald-500/10 rounded-full blur-[120px] animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
@@ -140,8 +137,6 @@ export default function OnboardingPage() {
       </div>
 
       <div className="w-full max-w-[1100px] grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
-
-        {/* Left Side: Brand & Value Prop */}
         <div className="hidden lg:flex flex-col space-y-8 animate-in slide-in-from-left-8 duration-700">
           <div className="inline-flex items-center space-x-3 px-4 py-2 bg-white/5 border border-white/10 rounded-full w-fit backdrop-blur-md">
             <ShieldCheck className="w-4 h-4 text-emerald-500" />
@@ -172,10 +167,8 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        {/* Right Side: Auth Card */}
         <div className="flex justify-center">
           <div className="w-full max-w-md bg-zinc-900/50 border border-white/10 rounded-[3rem] p-8 md:p-12 backdrop-blur-2xl shadow-2xl relative overflow-hidden group">
-            {/* Glossy Overlay */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-indigo-500 to-emerald-500 opacity-50" />
 
             <div className="flex flex-col items-center mb-10">
@@ -313,7 +306,6 @@ export default function OnboardingPage() {
         </div>
       </div>
 
-      {/* Footer Details */}
       <footer className="mt-12 opacity-30 flex items-center space-x-6 text-[10px] font-black uppercase tracking-[3px] text-zinc-400 relative z-10">
         <span>Public Beta 1.0</span>
         <div className="w-1 h-1 bg-zinc-700 rounded-full" />
@@ -322,5 +314,13 @@ export default function OnboardingPage() {
         <span>PCI Compliant</span>
       </footer>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingContent />
+    </Suspense>
   );
 }

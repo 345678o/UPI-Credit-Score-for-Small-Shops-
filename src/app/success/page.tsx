@@ -6,9 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, IndianRupee, ArrowRight, Calendar } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
-export default function SuccessPage() {
+function SuccessContent() {
   const searchParams = useSearchParams();
   const name = searchParams.get("name") || "Customer";
   const amount = searchParams.get("amount") || "0";
@@ -73,5 +73,13 @@ export default function SuccessPage() {
         <p className="text-[10px] font-bold text-zinc-700 uppercase tracking-[4px] italic">CrediPay Secure Ledger</p>
       </div>
     </AppShell>
+  );
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={null}>
+      <SuccessContent />
+    </Suspense>
   );
 }

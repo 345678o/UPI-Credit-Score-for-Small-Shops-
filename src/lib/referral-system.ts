@@ -196,6 +196,15 @@ export async function processReferralCode(db: Firestore, code: string, referredU
       return { success: false, message: "Cannot use your own referral code" };
     }
 
+    // Find the referral link BEFORE the transaction
+    const linkQuery = query(
+      collection(db, "referralLinks"),
+      where("referralCode", "==", code),
+      limit(1)
+    );
+    const linkSnapshot = await getDocs(linkQuery);
+    const linkDocId = linkSnapshot.empty ? null : linkSnapshot.docs[0].id;
+
     // Process the referral in a transaction
     const result = await runTransaction(db, async (transaction) => {
       const codeRef = doc(db, "referralCodes", codeSnapshot.docs[0].id);
@@ -214,16 +223,9 @@ export async function processReferralCode(db: Firestore, code: string, referredU
         usedAt: serverTimestamp()
       });
 
-      // Track click
-      const linkQuery = query(
-        collection(db, "referralLinks"),
-        where("referralCode", "==", code),
-        limit(1)
-      );
-      
-      const linkSnapshot = await getDocs(linkQuery);
-      if (!linkSnapshot.empty) {
-        const linkRef = doc(db, "referralLinks", linkSnapshot.docs[0].id);
+      // Track click if link exists
+      if (linkDocId) {
+        const linkRef = doc(db, "referralLinks", linkDocId);
         const linkDoc = await transaction.get(linkRef);
         
         if (linkDoc.exists()) {
